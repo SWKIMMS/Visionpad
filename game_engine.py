@@ -61,6 +61,8 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
                     variant = copy.deepcopy(recipe)
                     variant.update(effect)
                     variant.update(hidden_recipe=True, fish_grade=grade, base_recipe=recipe_id)
+                    adjective = {'low': 'Simple', 'medium': 'Ordinary', 'high': 'Luxurious'}[grade]
+                    variant['label'] = f"{adjective} {recipe['label']}"
                     config['recipes'][recipe_id+'_'+grade] = variant
         names = {"home": "Home", "farm": "Farm", "town": "Village", "mine": "Mine", "fishing": "Fishing lake",
                  "minimap": "Map", "inventory": "Inventory", "research": "Research",
@@ -377,6 +379,8 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return f"Activity: {remaining} hours left"
 
     def recipe_effect_text(self, recipe):
+        if recipe.get('seafood'):
+            return recipe.get('buff_label', 'Food effect')
         if recipe.get('buff_kind') == 'sale_boost':
             return f"{recipe.get('buff_label', 'Better sales')}, {recipe.get('sale_uses', 3)} sales"
         return f"{recipe.get('buff_label', 'Food effect')}, {float(recipe.get('buff_ticks', 0)):g} hours"
@@ -387,6 +391,9 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return 1.0
 
     def buff_text(self):
+        recipe = self.get_recipe_config(self.active_buff.get('source')) or {}
+        if recipe.get('fish_grade') and (self.active_buff.get('remaining_ticks', 0) > 0 or self.active_buff.get('remaining_sales', 0) > 0):
+            return self.recipe_effect_text(recipe)
         if self.active_buff.get('kind')=='sale_boost' and self.active_buff.get('remaining_sales',0)>0:
             return f"Better sales, {self.active_buff['remaining_sales']} sales left"
         remaining = float(self.active_buff.get("remaining_ticks", 0))

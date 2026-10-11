@@ -9,6 +9,8 @@ class SeafoodMixin:
     def get_fish_price(self, fish_id):
         fish=self.fishing_config()['fish'][fish_id]
         cfg=self.fishing_config()
+        if fish['grade'] in cfg.get('fish_sell_prices', {}):
+            return int(cfg['fish_sell_prices'][fish['grade']])
         return self.get_mineral_price(cfg.get('fish_price_base_mineral','copper'))+int(cfg.get('fish_price_grade_bonus',{}).get(fish['grade'],0))
 
     def selected_fish(self):
@@ -62,7 +64,7 @@ class SeafoodMixin:
         self.resources['fish'][fish]-=recipe.get('fish_required',1)
         amount=self.loot_amount(1)
         self.resources['foods'][rid]=self.resources['foods'].get(rid,0)+amount
-        text=f"{recipe['label']} {amount} made."+(' Bonus.' if amount>1 else '')
+        text=f"{self.get_recipe_config(rid)['label']} {amount} made."+(' Bonus.' if amount>1 else '')
         self.clear_cooking();self.clear_hover();self.current_page=self.current_location='home'
         result=self.consume_time('cook');self.render()
         return self.night_response(text) if result['night'] else self.response(tts=text,sfx='cooking_success')

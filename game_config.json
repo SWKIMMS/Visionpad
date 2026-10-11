@@ -1188,7 +1188,7 @@
         },
         "high": {
           "buff_ticks": 16,
-          "rare_weight_multiplier": 2.5
+          "rare_weight_multiplier": 3
         }
       },
       "allowed_fish": [
@@ -1229,7 +1229,7 @@
         },
         "high": {
           "buff_ticks": 0,
-          "buff_multiplier": 1.75,
+          "buff_multiplier": 1.8,
           "sale_uses": 5
         }
       },
@@ -1870,7 +1870,12 @@
     },
     "rod_price": 100,
     "rod_safe_catches": 4,
-    "middle_area_fraction": 0.16666666666666666
+    "middle_area_fraction": 0.16666666666666666,
+    "fish_sell_prices": {
+      "low": 24,
+      "medium": 27,
+      "high": 36
+    }
   },
   "cooking_methods": {
     "gestures": {
