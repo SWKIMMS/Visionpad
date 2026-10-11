@@ -5,7 +5,9 @@
     "items": "assets/items.png",
     "extras": "assets/extras.png",
     "facilities": "assets/facilities.png",
-    "scenes2": "assets/scenes2.png"
+    "scenes2": "assets/scenes2.png",
+    "scene3": "assets/scene3.png",
+    "items2": "assets/items2.png"
   },
   "backgrounds": {
     "home": {
@@ -78,6 +80,24 @@
         492,
         766,
         532
+      ]
+    },
+    "fishing": {
+      "texture": "scene3",
+      "source": [
+        0,
+        0,
+        768,
+        486
+      ]
+    },
+    "kitchen": {
+      "texture": "scene3",
+      "source": [
+        770,
+        488,
+        766,
+        536
       ]
     }
   },
@@ -389,6 +409,177 @@
         202,
         201
       ]
+    },
+    "salmon": {
+      "texture": "items2",
+      "source": [
+        575,
+        160,
+        342,
+        190
+      ]
+    },
+    "rainbow_trout": {
+      "texture": "items2",
+      "source": [
+        920,
+        155,
+        330,
+        196
+      ]
+    },
+    "carp": {
+      "texture": "items2",
+      "source": [
+        20,
+        410,
+        300,
+        207
+      ]
+    },
+    "bass": {
+      "texture": "items2",
+      "source": [
+        320,
+        418,
+        300,
+        197
+      ]
+    },
+    "catfish": {
+      "texture": "items2",
+      "source": [
+        620,
+        414,
+        301,
+        208
+      ]
+    },
+    "mackerel": {
+      "texture": "items2",
+      "source": [
+        919,
+        433,
+        330,
+        187
+      ]
+    },
+    "sardine": {
+      "texture": "items2",
+      "source": [
+        23,
+        710,
+        295,
+        135
+      ]
+    },
+    "flounder": {
+      "texture": "items2",
+      "source": [
+        323,
+        650,
+        303,
+        239
+      ]
+    },
+    "grilled_fish": {
+      "texture": "items2",
+      "source": [
+        18,
+        940,
+        310,
+        230
+      ]
+    },
+    "grilled_fish_low": {
+      "texture": "items2",
+      "source": [
+        18,
+        940,
+        310,
+        230
+      ]
+    },
+    "grilled_fish_medium": {
+      "texture": "items2",
+      "source": [
+        18,
+        940,
+        310,
+        230
+      ]
+    },
+    "grilled_fish_high": {
+      "texture": "items2",
+      "source": [
+        18,
+        940,
+        310,
+        230
+      ]
+    },
+    "fish_stew": {
+      "texture": "items2",
+      "source": [
+        330,
+        925,
+        288,
+        246
+      ]
+    },
+    "fish_stew_low": {
+      "texture": "items2",
+      "source": [
+        330,
+        925,
+        288,
+        246
+      ]
+    },
+    "fish_stew_medium": {
+      "texture": "items2",
+      "source": [
+        330,
+        925,
+        288,
+        246
+      ]
+    },
+    "fish_stew_high": {
+      "texture": "items2",
+      "source": [
+        330,
+        925,
+        288,
+        246
+      ]
+    },
+    "fried_fish": {
+      "texture": "items2",
+      "source": [
+        623,
+        923,
+        310,
+        250
+      ]
+    },
+    "fried_fish_low": {
+      "texture": "items2",
+      "source": [
+        623,
+        923,
+        310,
+        250
+      ]
+    },
+    "fried_fish_medium": {
+      "texture": "items2",
+      "source": [
+        623,
+        923,
+        310,
+        250
+      ]
     }
   },
   "pages": {
@@ -448,6 +639,9 @@
     },
     "load_game": {
       "renderer": "load_game"
+    },
+    "fishing": {
+      "renderer": "fishing"
     }
   }
 }

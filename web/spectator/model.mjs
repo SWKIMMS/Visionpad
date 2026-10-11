@@ -1,10 +1,11 @@
 export const WORLD = { width: 960, height: 600 };
-export const SCENES = ["home", "farm", "town", "mine"];
+export const SCENES = ["home", "farm", "town", "mine", "fishing"];
 export const TITLES = {
   home: "Home",
   farm: "The farm",
   town: "Village square",
   mine: "Mountain quarry",
+  fishing: "Fishing lake",
   minimap: "Valley map",
   inventory: "Your inventory",
   research: "Research workshop",

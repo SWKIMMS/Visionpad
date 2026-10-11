@@ -8,10 +8,12 @@ from dotpad import DotPad
 from pathlib import Path
 from game_saves import SaveMixin
 from game_ui import KeypadUI
+from game_fishing import FishingMixin
+from game_seafood import SeafoodMixin
 from spectator_state import spectator_snapshot
 
 
-class GameEngine(KeypadUI, SaveMixin):
+class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
 
     def __init__(self, config, save_dir=None):
         config = self.prepare_display_config(config)
@@ -52,7 +54,15 @@ class GameEngine(KeypadUI, SaveMixin):
     def prepare_display_config(config):
         # Keep saved rules intact; normalize presentation in a private copy.
         config = copy.deepcopy(config)
-        names = {"home": "Home", "farm": "Farm", "town": "Village", "mine": "Mine",
+        # One editable definition per dish; inventory variants preserve effect strength.
+        for recipe_id, recipe in list(config.get('recipes', {}).items()):
+            if recipe.get('seafood') and not recipe.get('hidden_recipe'):
+                for grade, effect in recipe.get('quality_effects', {}).items():
+                    variant = copy.deepcopy(recipe)
+                    variant.update(effect)
+                    variant.update(hidden_recipe=True, fish_grade=grade, base_recipe=recipe_id)
+                    config['recipes'][recipe_id+'_'+grade] = variant
+        names = {"home": "Home", "farm": "Farm", "town": "Village", "mine": "Mine", "fishing": "Fishing lake",
                  "minimap": "Map", "inventory": "Inventory", "research": "Research",
                  "plot_detail": "Plot", "seed_select": "Seeds", "water_minigame": "Watering",
                  "fertilizer_minigame": "Fertilizing", "harvest": "Harvest",
@@ -67,6 +77,7 @@ class GameEngine(KeypadUI, SaveMixin):
         for key, seed in config.get("seeds", {}).items():
             seed["label"] = {"tomato": "Tomato", "carrot": "Carrot", "potato": "Potato"}.get(key, key.replace("_", " ").title())
         for key, recipe in config.get("recipes", {}).items():
+            if recipe.get("seafood"): continue
             recipe["label"] = {"tomato_carrot_stew": "Tomato carrot stew", "potato_tomato_soup": "Potato tomato soup",
                                "vegetable_fritters": "Vegetable fritters"}.get(key, key.replace("_", " ").title())
             recipe["buff_label"] = {"harvest_multiplier": "Harvest boost", "pickaxe_protection": "Pickaxe protection",
@@ -114,7 +125,7 @@ class GameEngine(KeypadUI, SaveMixin):
                 elif o.get("action", "").startswith("shop_page:"):
                     o.update(x=6 if o["action"].endswith(":-1") else 16, y=35, hit_width=7, hit_height=7)
             return objects
-        if page in ("minimap", "cooking", "mine", "water_minigame", "fertilizer_minigame", "harvest", "inventory", "shop_buy", "shop_sell"):
+        if page in ("minimap", "cooking", "mine", "fishing", "water_minigame", "fertilizer_minigame", "harvest", "inventory", "shop_buy", "shop_sell"):
             return objects
         objects = [dict(o) for o in objects]
         arrows = [o for o in objects if o.get("type") == "arrow"]
@@ -256,6 +267,7 @@ class GameEngine(KeypadUI, SaveMixin):
         self.time_total_cells = int(time_config.get("total_cells", 20))
         self.time_used_cells = 0
         self.regenerate_mine()
+        self.reset_fishing()
 
         self.render()
 
@@ -365,6 +377,8 @@ class GameEngine(KeypadUI, SaveMixin):
         return f"Activity: {remaining} hours left"
 
     def recipe_effect_text(self, recipe):
+        if recipe.get('buff_kind') == 'sale_boost':
+            return f"{recipe.get('buff_label', 'Better sales')}, {recipe.get('sale_uses', 3)} sales"
         return f"{recipe.get('buff_label', 'Food effect')}, {float(recipe.get('buff_ticks', 0)):g} hours"
 
     def buff_multiplier_for(self, kind):
@@ -373,6 +387,8 @@ class GameEngine(KeypadUI, SaveMixin):
         return 1.0
 
     def buff_text(self):
+        if self.active_buff.get('kind')=='sale_boost' and self.active_buff.get('remaining_sales',0)>0:
+            return f"Better sales, {self.active_buff['remaining_sales']} sales left"
         remaining = float(self.active_buff.get("remaining_ticks", 0))
         if remaining <= 0:
             return "No food effect"
@@ -380,6 +396,7 @@ class GameEngine(KeypadUI, SaveMixin):
         return f"{recipe.get('buff_label', 'Food effect')}, {remaining:g} hours left"
 
     def tick_buff(self, cost):
+        if self.active_buff.get("kind") == "sale_boost": return
         remaining = float(self.active_buff.get("remaining_ticks", 0))
         remaining = max(0, remaining - max(0, float(cost)))
         self.active_buff["remaining_ticks"] = remaining
@@ -455,6 +472,8 @@ class GameEngine(KeypadUI, SaveMixin):
             state["fertilized"] = False
 
         self.day += 1
+        self.new_fishing_target()
+        self.fishing_last_catch = None
         self.regenerate_mine()
         self.time_used_cells = 0
         self.day_ended = False
@@ -491,6 +510,7 @@ class GameEngine(KeypadUI, SaveMixin):
     def can_craft_recipe(self, recipe_id):
         recipe = self.get_recipe_config(recipe_id)
         ingredients = recipe.get("ingredients", {})
+        if recipe.get("seafood"): return self.seafood_ready(recipe)
         if len(ingredients) < 2:
             return False
         for seed_id, needed in ingredients.items():
@@ -504,6 +524,9 @@ class GameEngine(KeypadUI, SaveMixin):
         for seed_id, count in recipe.get("ingredients", {}).items():
             crop_price = int(self.get_seed_config(seed_id).get("crop_price", 1))
             ingredient_total += crop_price * int(count)
+        if recipe.get('seafood'):
+            prices=[self.get_fish_price(k) for k,v in self.fishing_config()['fish'].items() if v['grade']==recipe.get('fish_grade','low')]
+            ingredient_total += min(prices)*recipe.get('fish_required',1)
         return max(1, int(math.ceil(ingredient_total * 1.2)))
 
     def get_layout_objects(self):
@@ -515,6 +538,7 @@ class GameEngine(KeypadUI, SaveMixin):
             "farm": self.get_farm_objects,
             "town": self.get_town_objects,
             "mine": self.get_mine_objects,
+            "fishing": self.get_fishing_objects,
             "minimap": self.get_minimap_objects,
             "seed_select": self.get_seed_select_objects,
             "inventory": self.get_inventory_objects,
@@ -545,7 +569,7 @@ class GameEngine(KeypadUI, SaveMixin):
                 w,h=(5,9) if obj.get("direction") in ("left","right") else (9,5)
                 obj["hit_width"],obj["hit_height"]=w,h
         # Key navigation follows a linear route; the minimap keeps its own geometry.
-        route = ("farm", "home", "town", "mine")
+        route = ("farm", "home", "town", "mine", "fishing")
         if self.current_page in route:
             origin = route.index(self.current_page)
             for obj in objects:
@@ -811,6 +835,9 @@ class GameEngine(KeypadUI, SaveMixin):
                 "extra_tts": f"Use: {self.recipe_effect_text(recipe)}"
             })
 
+        entries.append({"id":"fishing_rod", "label":"Fishing rod", "count":self.resources.get("fishing_rod",0), "kind":"tool", "action":""})
+        for key, fish in self.fishing_config()['fish'].items():
+            entries.append({"id":key, "label":fish['label'], "count":self.resources['fish'].get(key,0), "kind":"fish", "action":""})
         if self.inventory_hide_zero_items:
             entries = [entry for entry in entries if entry["count"] > 0]
         page_size = self.inventory_items_per_page
@@ -1011,8 +1038,8 @@ class GameEngine(KeypadUI, SaveMixin):
         return objects
 
     def get_recipe_select_objects(self):
-        craftable = [(rid, cfg) for rid, cfg in self.config.get("recipes", {}).items() if self.can_craft_recipe(rid)]
-        positions = [(15, 17), (30, 17), (45, 17), (22, 29), (38, 29)]
+        craftable = [(rid, cfg) for rid, cfg in self.config.get("recipes", {}).items() if not cfg.get("hidden_recipe") and self.can_craft_recipe(rid)]
+        positions = [(8+15*(i%3),6+12*(i//3)) for i in range(6)]
         objects = []
         for index, (recipe_id, recipe) in enumerate(craftable[:len(positions)]):
             x, y = positions[index]
@@ -1050,7 +1077,7 @@ class GameEngine(KeypadUI, SaveMixin):
             })
 
         objects.append(self.back_arrow("ingredient_back", "Back to recipes", "open_recipes"))
-        return objects
+        return self.seafood_ingredient_objects(objects)
 
     def get_cooking_objects(self):
         return []
@@ -1077,6 +1104,7 @@ class GameEngine(KeypadUI, SaveMixin):
                     ("pickaxe", "pickaxe", "Pickaxe", self.resources["pickaxe"], self.get_pickaxe_price())]
         entries += [("mineral", key, self.MINERAL_LABELS[key], self.resources[key], self.get_mineral_price(key, buying=True))
                     for key in ("stone", "copper", "iron")]
+        entries.append(("fishing_rod", "fishing_rod", "Fishing rod", self.resources.get("fishing_rod",0), self.get_rod_price()))
         return self.build_shop_objects(entries, "buy")
 
     def get_shop_sell_objects(self):
@@ -1086,6 +1114,8 @@ class GameEngine(KeypadUI, SaveMixin):
                     for key, recipe in self.config.get("recipes", {}).items() if self.resources["foods"].get(key, 0) > 0]
         entries += [("mineral", key, label, self.resources[key], self.get_mineral_price(key))
                     for key, label in self.MINERAL_LABELS.items() if self.resources[key] > 0]
+        entries += [("fish", key, fish['label'], self.resources['fish'].get(key,0), self.get_fish_price(key))
+                    for key, fish in self.fishing_config()['fish'].items() if self.resources['fish'].get(key,0)>0]
         return self.build_shop_objects(entries, "sell")
 
     def back_arrow(self, object_id, label, action):
@@ -1100,6 +1130,7 @@ class GameEngine(KeypadUI, SaveMixin):
         parts = []
         for seed_id, count in recipe.get("ingredients", {}).items():
             parts.append(f"{self.get_seed_label(seed_id)} {count} ")
+        if recipe.get("seafood"): parts.append("Choose one fish")
         return ", ".join(parts)
 
     def get_relative_direction(self, origin, target):
@@ -1180,6 +1211,8 @@ class GameEngine(KeypadUI, SaveMixin):
             elif obj_type == "shop_item":
                 self.draw_shop_item(obj)
 
+        if self.current_page == "fishing":
+            self.draw_lake()
         if self.current_page == "cooking":
             self.draw_cooking_path()
         self.draw_time_bar()
@@ -1377,7 +1410,7 @@ class GameEngine(KeypadUI, SaveMixin):
         x, y = int(obj["x"]), int(obj["y"])
         self.dotpad.draw_box(x, y, obj.get("width", 12), obj.get("height", 9))
         if not obj.get("selected"):
-            self.draw_category(x, y, "crop")
+            self.draw_category(x, y, obj.get("item_kind", "crop"))
         if obj.get("selected"):
             self.dotpad.draw_line(x - 3, y + 1, x - 1, y + 3)
             self.dotpad.draw_line(x - 1, y + 3, x + 3, y - 2)
@@ -1555,9 +1588,9 @@ class GameEngine(KeypadUI, SaveMixin):
         self.last_pointer = (x, y)
         if self.paused:
             return self.response()
-        if self.current_page == "mine" and self.pointer_pressed:
+        if self.current_page in ("mine", "fishing") and self.pointer_pressed:
             return self.response()
-        if self.current_page == "cooking":
+        if self.current_page in ("cooking", "fishing"):
             return self.response()
         obj = self.find_object(x, y)
         if obj is None:
@@ -1574,12 +1607,15 @@ class GameEngine(KeypadUI, SaveMixin):
             return self.response()
         if self.pending_visual_completion:
             return self.response()
-        if self.current_page == "mine" and self.pointer_pressed:
+        if self.current_page in ("mine", "fishing") and self.pointer_pressed:
             return self.response()
         self.pointer_pressed = True
         self.last_pointer = (x, y)
         if self.paused:
             return self.response()
+
+        if self.current_page == "fishing":
+            return self.cast_fishing(x, y)
 
         if self.current_page in ("water_minigame", "fertilizer_minigame"):
             self.care_dragging = True
@@ -1791,7 +1827,7 @@ class GameEngine(KeypadUI, SaveMixin):
     def travel_to(self, location):
         if self.day_ended:
             return self.night_only_response()
-        if location not in ("home", "farm", "town", "mine"):
+        if location not in ("home", "farm", "town", "mine", "fishing"):
             return self.response(tts="Location unavailable.")
         self._menu_stack.clear()
         changed = location != self.current_location
@@ -1809,6 +1845,9 @@ class GameEngine(KeypadUI, SaveMixin):
         self.render()
         name = self.get_page_name(location)
         particle = self.ro_particle(name)
+        if location == "fishing":
+            text = "Fishing lake. Follow the water sound. Tap to fish." if self.resources.get("fishing_rod") else "Fishing lake. Buy a fishing rod to catch fish."
+            return self.response(tts=text, sfx="travel")
         if location == "mine":
             text = "Mine. Tap rocks to break them." if self.resources["pickaxe"] else "Mine. Buy a pickaxe to break rocks."
             return self.response(tts=text, sfx="travel")
@@ -2219,13 +2258,14 @@ class GameEngine(KeypadUI, SaveMixin):
         base_yield = self.get_harvest_base_yield(seed_id)
         buff_multiplier = self.buff_multiplier_for("harvest_multiplier")
         buff_applied = buff_multiplier > 1.0
-        yield_count = max(1, int(math.ceil(base_yield * buff_multiplier)))
+        yield_count = self.loot_amount(max(1, int(math.ceil(base_yield * buff_multiplier))))
         self.resources["crops"][seed_id] = int(self.resources["crops"].get(seed_id, 0)) + yield_count
 
         chance = self.get_effective_seed_return_chance(seed_id)
         got_seed = random.random() < chance
+        seed_count = self.loot_amount(1) if got_seed else 0
         if got_seed:
-            self.resources["seeds"][seed_id] = int(self.resources["seeds"].get(seed_id, 0)) + 1
+            self.resources["seeds"][seed_id] = int(self.resources["seeds"].get(seed_id, 0)) + seed_count
 
         self.farm_plots[plot_id] = self.new_plot_state()
         self.current_location = "farm"
@@ -2238,7 +2278,7 @@ class GameEngine(KeypadUI, SaveMixin):
         if buff_applied:
             text += ". Harvest boost applied."
         if got_seed:
-            text += f". One seed recovered."
+            text += f". {seed_count} seeds recovered."
         else:
             text += ". No seed recovered."
 
@@ -2251,7 +2291,7 @@ class GameEngine(KeypadUI, SaveMixin):
     def open_recipes(self):
         if self.day_ended:
             return self.night_only_response()
-        craftable = [rid for rid in self.config.get("recipes", {}) if self.can_craft_recipe(rid)]
+        craftable = [rid for rid,cfg in self.config.get("recipes", {}).items() if not cfg.get("hidden_recipe") and self.can_craft_recipe(rid)]
         self.selected_recipe_id = None
         self.selected_ingredients.clear()
         self.current_page = "recipe_select"
@@ -2263,7 +2303,7 @@ class GameEngine(KeypadUI, SaveMixin):
         return self.response(tts=f"Choose a recipe.", sfx="open_page")
 
     def select_recipe(self, recipe_id):
-        if not self.can_craft_recipe(recipe_id):
+        if self.get_recipe_config(recipe_id).get("hidden_recipe") or not self.can_craft_recipe(recipe_id):
             return self.response(tts="Not enough ingredients.", sfx="error")
         self.selected_recipe_id = recipe_id
         self.selected_ingredients.clear()
@@ -2276,6 +2316,7 @@ class GameEngine(KeypadUI, SaveMixin):
         if self.current_page != "ingredient_select":
             return self.response()
         recipe = self.get_recipe_config(self.selected_recipe_id)
+        if seed_id.startswith("fish:"): return self.toggle_fish(seed_id)
         if seed_id not in recipe.get("ingredients", {}):
             return self.response(tts="Ingredient not required.", sfx="error")
         if seed_id in self.selected_ingredients:
@@ -2289,7 +2330,7 @@ class GameEngine(KeypadUI, SaveMixin):
         self.clear_hover()
         self.render()
         required = set(recipe.get("ingredients", {}).keys())
-        if required and required.issubset(self.selected_ingredients):
+        if required and required.issubset(self.selected_ingredients) and (not recipe.get("seafood") or self.selected_fish()):
             self.pointer_pressed = False
             return self.open_cooking_minigame()
         return self.response(tts=text, sfx="ingredient_select")
@@ -2297,7 +2338,9 @@ class GameEngine(KeypadUI, SaveMixin):
     def get_cooking_steps(self):
         recipe = self.get_recipe_config(self.selected_recipe_id)
         steps = recipe.get("gesture_steps")
-        return steps if steps else [recipe.get("gesture", {})]
+        steps = steps if steps else [recipe.get("gesture", {})]
+        registry = self.config.get('cooking_methods', {}).get('gestures', {})
+        return [copy.deepcopy(registry[step['method']]) if 'method' in step else step for step in steps]
 
     def get_scaled_cooking_gesture(self):
         steps = self.get_cooking_steps()
@@ -2322,7 +2365,7 @@ class GameEngine(KeypadUI, SaveMixin):
         gesture = dict(self.get_scaled_cooking_gesture())
         path = [list(p) for p in gesture.get("path", [])]
         if not path: return gesture
-        if len(path) > 2 and math.dist(path[0], path[-1]) < 8:
+        if not gesture.get("closed") and len(path) > 2 and math.dist(path[0], path[-1]) < 8:
             while len(path) > 2 and math.dist(path[0], path[-1]) < 8:
                 path.pop()
         # Restore the configured full-field position. Keep the distinct filled
@@ -2331,7 +2374,7 @@ class GameEngine(KeypadUI, SaveMixin):
         return gesture
 
     def get_cooking_kind(self):
-        return "stir" if self.get_cooking_gesture().get("kind") == "stir" else "cut"
+        return "stir" if self.get_cooking_gesture().get("kind") in ("stir", "grill", "fry") else "cut"
 
     def get_cooking_stage_label(self):
         return self.get_cooking_gesture().get("label") or ("Stir" if self.get_cooking_kind() == "stir" else "Chop")
@@ -2361,6 +2404,8 @@ class GameEngine(KeypadUI, SaveMixin):
         if not recipe:
             return self.response(tts="Choose a recipe first.", sfx="error")
         required = set(recipe.get("ingredients", {}).keys())
+        if recipe.get("seafood") and not self.seafood_ready(recipe, selected=True):
+            return self.response(tts="Choose one fish first.")
         if not required.issubset(self.selected_ingredients):
             return self.response(tts="Select all ingredients first.", sfx="error")
         if not self.can_craft_recipe(self.selected_recipe_id):
@@ -2450,6 +2495,7 @@ class GameEngine(KeypadUI, SaveMixin):
     def finish_cooking_success(self):
         recipe_id = self.selected_recipe_id
         recipe = self.get_recipe_config(recipe_id)
+        if recipe.get("seafood"): return self.finish_seafood(recipe)
         if not recipe or not self.can_craft_recipe(recipe_id):
             self.clear_cooking()
             self.current_page = "home"
@@ -2458,14 +2504,15 @@ class GameEngine(KeypadUI, SaveMixin):
             return self.response(tts="Not enough ingredients.", sfx="error")
         for seed_id, count in recipe.get("ingredients", {}).items():
             self.resources["crops"][seed_id] -= int(count)
-        self.resources["foods"][recipe_id] = int(self.resources["foods"].get(recipe_id, 0)) + 1
+        food_count = self.loot_amount(1)
+        self.resources["foods"][recipe_id] = int(self.resources["foods"].get(recipe_id, 0)) + food_count
         label = self.get_recipe_label(recipe_id)
         self.current_location = "home"
         self.current_page = "home"
         self.clear_cooking()
         self.clear_hover()
         result = self.consume_time("cook")
-        text = f"{label} made."
+        text = f"{label} {food_count} made." + (" Bonus." if food_count>1 else "")
         if result["night"]:
             return self.night_response(text)
         self.render()
@@ -2481,7 +2528,10 @@ class GameEngine(KeypadUI, SaveMixin):
             "kind": recipe.get("buff_kind", "harvest_multiplier"),
             "source": recipe_id,
             "multiplier": float(recipe.get("buff_multiplier", 1.0)),
-            "remaining_ticks": float(recipe.get("buff_ticks", 0))
+            "remaining_ticks": float(recipe.get("buff_ticks", 0)),
+            "remaining_sales": int(recipe.get("sale_uses", 0)),
+            "rare_weight_multiplier": float(recipe.get("rare_weight_multiplier", 1)),
+            "double_chance": float(recipe.get("double_chance", 0))
         }
         self.clear_hover()
         self.render()
@@ -2515,6 +2565,8 @@ class GameEngine(KeypadUI, SaveMixin):
         return self.response(tts=text, sfx="open_page")
 
     def buy_shop_item(self, kind, item_id):
+        if kind == "fishing_rod" and item_id == "fishing_rod":
+            return self.buy_fishing_rod()
         if kind in ("pickaxe", "mineral"):
             return self.buy_mine_item(kind, item_id)
         if kind == "seed":
@@ -2542,7 +2594,13 @@ class GameEngine(KeypadUI, SaveMixin):
         return self.response(tts=f"{label} bought. Gold left: {self.resources['coin']} gold", sfx="shop_buy", sound_events=[{"kind": "one_shot", "sound": "coin"}] if price > 0 else [])
 
     def sell_shop_item(self, kind, item_id):
-        if kind == "mineral" and item_id in self.MINERAL_LABELS:
+        if kind == "fish" and item_id in self.fishing_config()['fish']:
+            if self.resources['fish'].get(item_id,0) < 1:
+                return self.response(tts="No fish to sell.")
+            fish = self.fishing_config()['fish'][item_id]
+            price, label = self.get_fish_price(item_id), fish['label']
+            self.resources['fish'][item_id] -= 1
+        elif kind == "mineral" and item_id in self.MINERAL_LABELS:
             if self.resources[item_id] < 1:
                 return self.response(tts="No mineral to sell.", sfx="error")
             price, label = self.get_mineral_price(item_id), self.MINERAL_LABELS[item_id]
@@ -2563,7 +2621,9 @@ class GameEngine(KeypadUI, SaveMixin):
             self.resources["foods"][item_id] = count - 1
         else:
             return self.response(tts="Cannot sell this item.", sfx="error")
+        price = self.sale_price(price)
         self.resources["coin"] += price
+        self.consume_sale()
         self.clear_hover()
         self.render()
         return self.response(tts=f"{label} sold. Gold left: {self.resources['coin']} gold", sfx="shop_sell", sound_events=[{"kind": "one_shot", "sound": "coin"}] if price > 0 else [])
@@ -2606,11 +2666,12 @@ class GameEngine(KeypadUI, SaveMixin):
         objects = self.get_objects()
         return {
             "spectator": spectator_snapshot(self, objects),
+            "fishing": self.fishing_public_state(),
             "objects": [{"id": o["id"], "label": o.get("label", ""),
                          "type": o.get("type"), "x": o.get("x"), "y": o.get("y"),
                          "description": self.get_object_tts(o), "actionable": bool(o.get("action"))}
                         for o in objects if o.get("type") != "route"],
-            "action_costs": {k: self.get_action_cost(k) for k in ("travel", "plant", "water", "fertilize", "harvest", "research", "cook", "mine")},
+            "action_costs": {k: self.get_action_cost(k) for k in ("travel", "plant", "water", "fertilize", "harvest", "research", "cook", "mine", "fish")},
             "sleeping": self.sleep_until is not None,
             "client_settings": self.client_settings,
             "navigation": {d: bool(self.key_arrows(d)) for d in ("left", "right")},
@@ -2747,6 +2808,9 @@ class GameEngine(KeypadUI, SaveMixin):
         exit_arrow = self.back_arrow("mine_exit", "Village", "travel:town")
         exit_arrow.update(x=3, y=self.dotpad.height-6, direction="left", size=3, hit_width=7, hit_height=7)
         objects.append(exit_arrow)
+        entrance = self.back_arrow("mine_fishing", "Fishing lake", "travel:fishing")
+        entrance["direction"] = "right"
+        objects.append(entrance)
         return objects
 
     def item_destroyed_event(self, item_id, reward_sound=None, loot_tts=None):
@@ -2778,9 +2842,11 @@ class GameEngine(KeypadUI, SaveMixin):
             bonus = float(research.get("diamond_weight_per_level", 1)) * level
             weights["diamond"] += bonus
             weights["stone"] = max(0, weights["stone"] - bonus)
+            weights = self.boost_rare_weights(weights, ("iron", "diamond"))
             mineral = random.choices(list(weights), weights=list(weights.values()), k=1)[0]
             doubled = random.random() < min(1, level * float(research.get("double_drop_chance_per_level", .15)))
-            amount = 2 if doubled else 1
+            amount = self.loot_amount(2 if doubled else 1)
+            doubled = amount > 1
             self.resources[mineral] += amount
             self.mine_rocks.remove(rock)
             text = f"{self.MINERAL_LABELS[mineral]} {amount} collected." + (". Bonus." if doubled else "")
@@ -2816,6 +2882,7 @@ class GameEngine(KeypadUI, SaveMixin):
         self.shop_page = max(0, min(self.shop_page, pages - 1))
         objects = []
         for i, (kind, item_id, label, count, price) in enumerate(entries[self.shop_page * page_size:(self.shop_page + 1) * page_size]):
+            if mode == "sell": price = self.sale_price(price)
             x, y = (9, 23, 37, 51)[i % 4], (5, 15, 25)[i // 4]
             text = f"{label}, {price} gold. stock {count} " if mode == "buy" else f"{label}, stock {count}. Sell {price} gold"
             if kind == "pickaxe" and count:

@@ -25,7 +25,7 @@
 <section class="card"><h2>Daily status</h2><div id="score-feedback" style="color:var(--mint);font-size:12px;min-height:22px"></div><div id="buff-text">No food effect</div><div class="progress-track"><div id="activity-fill"></div></div><div class="metrics"><div>Fertilizer<strong id="fertilizer-text">2</strong></div><div>Unlocked plots<strong id="plot-text">2</strong></div><div>Seed recovery<strong id="research-text">Level 0</strong></div><div>Time left<strong id="remaining-text">20 hours</strong></div></div></section>
 <section class="card"><h2>Objects nearby</h2><div class="scene-sub" style="margin-bottom:12px">These buttons perform the same actions as the tactile objects.</div><div id="object-list"></div></section>
 <section class="card"><h2>Physical pad and hand tracking</h2><div class="toolbar"><button id="usb-button">Connect USB pad</button></div><p class="scene-sub" id="hardware-status">Web simulator · USB not connected</p><label class="setting" for="tracking-url">Hand-tracking server</label><input id="tracking-url" value="ws://127.0.0.1:8765" aria-label="Hand-tracking WebSocket address" style="width:100%;padding:9px;background:#111b13;border:1px solid #41543b;color:#dcead4;border-radius:6px;margin:8px 0"><div class="toolbar"><button id="tracking-button">Connect hand tracking</button><button id="tracking-hold" aria-pressed="false" disabled>Press</button></div><p id="tracking-status" class="scene-sub">Not connected</p><p class="scene-sub" style="line-height:1.6">The reference server sends hand coordinates only. Use the press button to begin selecting or dragging, then press it again to release.</p><a href="https://github.com/eun022/hand_drawing" target="_blank" rel="noopener noreferrer" style="color:#cbe8b8;font-size:12px">Connection tools and setup ↗</a></section><details class="card"><summary>Diagnostics and reset</summary><p>This page simulates the tactile pad. Connect a USB pad using Chrome or Edge on localhost. Start the hand-tracking server before connecting. Hold F3 to save progress to a local file. After restarting the server, press F3 to load a saved game.</p><div id="status"></div><button class="text-button" id="reset-button">New game</button></details>
-</aside></div></div><script src="/static/game-audio.js?v=20260915-en"></script><script src="/static/game-keys.js?v=20260916-hold-feedback3"></script>
+</aside></div></div><script src="/static/game-audio.js?v=fishing-polish-4"></script><script src="/static/game-keys.js?v=20260916-hold-feedback3"></script>
 <script>
 
 const canvas = document.getElementById("dotpad");
@@ -455,6 +455,8 @@ async function handleResponse(response) {
 
 let queuedHover = null;
 function queuePointer(endpoint, x, y) {
+    // Spatial audio follows local mouse/hand movement without waiting for the API.
+    if (currentState?.page === "fishing") gameAudio.move(x,y);
     if (endpoint.endsWith("/move")) {
         if (queuedHover) {queuedHover.x=x;queuedHover.y=y;return requestQueue;}
         const hover={x,y};queuedHover=hover;
@@ -710,4 +712,4 @@ function refreshDelayedVisuals() {
         }
     }).finally(() => { visualPollPending = false; });
 }
-</script><script type="module" src="/static/hardware.mjs?v=20260916-pan-quicksave"></script><div id="visual-relay" hidden aria-hidden="true"></div><script src="/static/spectator/display.js?v=large-cards-10" onerror="document.getElementById('visual-load-status').textContent='Visual display failed to download. Copy the complete update and reload with Ctrl+F5.'"></script></body></html>
+</script><script type="module" src="/static/hardware.mjs?v=20260916-pan-quicksave"></script><div id="visual-relay" hidden aria-hidden="true"></div><script src="/static/spectator/display.js?v=fishing-polish-4" onerror="document.getElementById('visual-load-status').textContent='Visual display failed to download. Copy the complete update and reload with Ctrl+F5.'"></script></body></html>

@@ -60,6 +60,23 @@ class SaveMixin:
             fresh = type(self)(self.config, save_dir=self.save_dir)
         finally:
             random.setstate(previous_rng)
+        # Migrate pre-fishing saves without replacing existing progress.
+        for key in ('fishing_target', 'fishing_last_catch', 'fishing_attempts', 'rod_casts', 'rod_catches'):
+            state.setdefault(key, copy.deepcopy(getattr(fresh, key)))
+        state['resources'].setdefault('fishing_rod', 0)
+        state['resources'].setdefault('fish', {})
+        # Retired high-grade fried fish becomes the supported medium variant.
+        foods = state['resources'].setdefault('foods', {})
+        retired = foods.pop('fried_fish_high', 0)
+        if retired: foods['fried_fish_medium'] = foods.get('fried_fish_medium', 0) + retired
+        buff = state.get('active_buff', {})
+        if buff.get('source') == 'fried_fish_high': buff['source'] = 'fried_fish_medium'
+        recipe = fresh.get_recipe_config(buff.get('source'))
+        if recipe.get('seafood'):
+            for field, key in [('multiplier','buff_multiplier'), ('rare_weight_multiplier','rare_weight_multiplier'), ('double_chance','double_chance')]:
+                if key in recipe: buff[field] = recipe[key]
+            if 'sale_uses' in recipe: buff['remaining_sales'] = min(buff.get('remaining_sales',0),recipe['sale_uses'])
+            buff['remaining_ticks'] = min(buff.get('remaining_ticks',0),recipe.get('buff_ticks',0))
         expected = set(fresh.snapshot())
         if set(state) != expected: raise ValueError("Incompatible save")
         if any(type(state[k]) is not type(v) and not (type(v) in (int, float) and type(state[k]) in (int, float))

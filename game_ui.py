@@ -30,7 +30,7 @@ class KeypadUI:
         all_arrows = [o for o in self.get_layout_objects() if o.get('type') == 'arrow']
         arrows = [o for o in all_arrows if ('left' if o.get('direction') == 'left' else 'right') == direction]
         if (not arrows and direction == 'right'
-                and self.current_page not in ('farm', 'home', 'town', 'mine')
+                and self.current_page not in ('farm', 'home', 'town', 'mine', 'fishing')
                 and all_arrows and all(o.get('direction') == 'left' for o in all_arrows)):
             arrows = all_arrows
         return arrows
@@ -89,10 +89,11 @@ class KeypadUI:
 
     def draw_category(self, x, y, kind):
         if kind in ('stone','copper','iron','diamond','mineral'): kind='mineral'
-        if kind in ('pickaxe','tool','fertilizer'): kind='tool'
+        if kind in ('pickaxe','tool','fertilizer','fishing_rod'): kind='tool'
         patterns={
             'seed':['10001','00000','00100'],
             'crop':['11111','01110','00100'],
+            'fish':['011010','111110','011010'],
             'mineral':['111','111','111'],
             'tool':['00100','11111','01110','11011'],
             'fertilizer':['11011','11011','00000'],

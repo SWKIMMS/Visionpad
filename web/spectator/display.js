@@ -2,12 +2,13 @@
 "use strict";
 try {
 const WORLD = { width: 960, height: 600 };
-const SCENES = ["home", "farm", "town", "mine"];
+const SCENES = ["home", "farm", "town", "mine", "fishing"];
 const TITLES = {
   home: "Home",
   farm: "The farm",
   town: "Village square",
   mine: "Mountain quarry",
+  fishing: "Fishing lake",
   minimap: "Valley map",
   inventory: "Your inventory",
   research: "Research workshop",
@@ -160,7 +161,7 @@ function snapshot(input) {
 const base = new URL(".", document.currentScript.src);
 const css = document.createElement("link");
 css.rel = "stylesheet";
-css.href = new URL("viewer.css?v=large-cards-10", base);
+css.href = new URL("viewer.css?v=fishing-polish-4", base);
 document.head.append(css);
 const root = document.createElement("section");
 root.className = "dotdew-observer";
@@ -173,8 +174,8 @@ ctx.imageSmoothingEnabled = false;
 const sheets = {};
 let sceneDefinitions={scenes:{}}, assetCatalog={backgrounds:{},facilities:{},objects:{},pages:{}};
 const assetsReady=Promise.all([
- fetch(new URL('scene-objects.json?v=large-cards-10',base)).then(r=>{if(!r.ok)throw new Error('Scene registry unavailable');return r.json();}).then(d=>{sceneDefinitions=d;}),
- fetch(new URL('visual-assets.json?v=large-cards-10',base)).then(r=>{if(!r.ok)throw new Error('Asset registry unavailable');return r.json();}).then(async d=>{assetCatalog=d;await Promise.all(Object.entries(d.textures||{}).map(([name,url])=>new Promise(resolve=>{const i=new Image();i.onload=()=>{sheets[name]=i;resolve();};i.onerror=()=>resolve();i.src=new URL(url,base);})));})
+ fetch(new URL('scene-objects.json?v=fishing-polish-4',base)).then(r=>{if(!r.ok)throw new Error('Scene registry unavailable');return r.json();}).then(d=>{sceneDefinitions=d;}),
+ fetch(new URL('visual-assets.json?v=fishing-polish-4',base)).then(r=>{if(!r.ok)throw new Error('Asset registry unavailable');return r.json();}).then(async d=>{assetCatalog=d;await Promise.all(Object.entries(d.textures||{}).map(([name,url])=>new Promise(resolve=>{const i=new Image();i.onload=()=>{sheets[name]=i;resolve();};i.onerror=()=>resolve();i.src=new URL(url,base);})));})
 ]).catch(error=>{console.warn(error);}).then(()=>{menuKey='';if(state)updateUI();});
 let animationFrame = 0;
 let state = null,
@@ -314,6 +315,24 @@ function mine() {
     outline(b.x, b.y, b.w, b.h, r.id);
   }
 }
+function fishing() {
+  const f=state.fishing, g=f?.lake;
+  if(!g)return;
+  // Match the tactile lake coordinates inside the water part of scene3.
+  const at=(x,y)=>[100+x/(state.width-1)*740,75+y/(state.height-1)*365];
+  const pointer=state.pointer;
+  if(pointer?.x!=null && pointer?.y!=null){
+    const [x,y]=at(pointer.x,pointer.y);
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.stroke();
+  }
+  const last=f.last_catch;
+  if(last){
+    ctx.fillStyle='#162b22ed';ctx.fillRect(620,480,325,100);
+    if(last.id)drawAsset(assetCatalog.objects[last.id],630,488,95,78);
+    text(last.label, last.id?730:645,535,'#baff91',20);
+  }
+}
 function facilities() {
   sceneObjects(state.page);
 }
@@ -347,7 +366,9 @@ function map() {
     const name = node.id.replace("map_", ""),
       [x, y] = at(node.x, node.y),
       i = sheets.scenes;
-    if (i) {
+    if (name === "fishing") {
+      drawAsset(assetCatalog.backgrounds.fishing,x-72,y-50,144,92,ctx,false);
+    } else if (i) {
       const n = SCENES.indexOf(name),
         seam = i.height * 0.46875;
       ctx.drawImage(
@@ -374,8 +395,7 @@ function mini() {
   const page = state.page,
     cook = page === "cooking";
   if (!cook) environment("soil");
-  else {ctx.fillStyle = "#1d2119ae";ctx.fillRect(0, 0, 960, 600);}
-  if(cook){ctx.fillStyle = "#bc8c52";ctx.fillRect(75,95,810,450);}
+  else environment("kitchen");
   ctx.strokeStyle = "#d8b17d";
   ctx.lineWidth = 7;
   ctx.strokeRect(75, 95, 810, 450);
@@ -385,9 +405,7 @@ function mini() {
   ];
   if (cook) {
     const path = state.spectator?.path || [];
-    ctx.globalAlpha = 0.3;
-    sprite(SPRITES[state.cooking?.recipe_id] ?? 13, 330, 175, 300);
-    ctx.globalAlpha = 1;
+
     ctx.lineWidth = 9;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -475,7 +493,7 @@ function fallbackPage() {
  const spec=assetCatalog.pages?.[state.page];
  if(!spec||!renderers.has(spec.renderer))return true;
  if(spec.renderer==='background'){const a=assetCatalog.backgrounds[spec.background];return !a||!sheets[a.texture];}
- const bg=state.page.startsWith('shop_')?'shop':['plot_detail','water_minigame','fertilizer_minigame','harvest'].includes(state.page)?'soil':scene(state)==='home'?'room':scene(state)==='town'?'square':scene(state);
+ const bg=state.page==='cooking'?'kitchen':state.page.startsWith('shop_')?'shop':['plot_detail','water_minigame','fertilizer_minigame','harvest'].includes(state.page)?'soil':scene(state)==='home'?'room':scene(state)==='town'?'square':scene(state);
  const asset=assetCatalog.backgrounds[bg];
  return !asset||!sheets[asset.texture];
 }
@@ -517,6 +535,7 @@ function render() {
   background(loc);
   if (state.page === "farm") farm();
   else if (state.page === "mine") mine();
+  else if (state.page === "fishing") fishing();
   if (loc === "home" || loc === "town") sceneObjects(loc);
   if (state.page.startsWith('shop_')) sceneObjects('shop');
   const ph = phase(state);
@@ -635,7 +654,7 @@ function menus() {
           : "Player selection";
   const grid = q(".dv-cards");
   grid.replaceChildren();
-  grid.style.gridTemplateColumns = state.page==='research'?'repeat(3,minmax(0,1fr))'
+  grid.style.gridTemplateColumns = ['research','recipe_select','ingredient_select'].includes(state.page)?'repeat(3,minmax(0,1fr))'
     :state.page==='plot_detail'?'repeat(3,minmax(0,1fr))'
     :state.page==='shop_choice'?'repeat(2,minmax(0,1fr))':'repeat(4,minmax(0,1fr))';
   // Use actual tactile row/column order, including sparse final rows.
