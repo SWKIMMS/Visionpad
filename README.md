@@ -83,7 +83,7 @@ Crops can be sold or cooked. Minerals can be traded or spent on research. Resear
 
 ### Time and sleep
 
-Time advances when activities finish. The current configuration gives each day 20 ticks. Travel costs 0; planting, watering, and fertilizing cost 2; harvesting, research, and cooking cost 3. Mining costs 2 ticks when a rock breaks, rather than on every hit.
+Time advances when activities finish. The current configuration gives each day 20 ticks. Travel costs 0; planting, watering, and fertilizing cost 2; harvesting, research, and cooking cost 3. Mining costs 4 ticks when a rock breaks, rather than on every hit.
 
 When the daily allowance runs out, the player returns home. During sleep, the tactile panels briefly turn off and background music pauses. The sleep sound plays once and continues to its end after the next day begins. The pad uses a lower tactile time panel; the companion uses a thin orange bar that fills as time is spent.
 
@@ -290,3 +290,61 @@ User testing will examine game comprehension and enjoyment, the workload of tact
 - Evaluate task completion, time, errors, comprehension, workload, and gesture accuracy with approximately six to eight visually impaired participants.
 
 User testing has not yet been conducted. Physical pad refresh speed, tracking under different lighting and camera positions, occlusion, and speech quality remain part of the planned evaluation. The current design assumes usable hearing and hand control.
+
+## Fishing update
+
+Travel order: Farm ↔ Home ↔ Village ↔ Mine ↔ Fishing lake. Buy one fishing rod at the shop before entering the lake. Default price: 75 gold (1.25 times the pickaxe price). Five casts are safe; break chance increases by 10 percentage points per cast from cast six. Misses count. The breaking cast still grants its catch.
+
+Move the mouse or tracked finger toward the looping water sound, then press inside the tactile lake outline to cast. The source is positioned relative to the pointer using HRTF spatial audio, with increasing volume near the target. Use stereo headphones. Each valid cast costs 4 ticks, including a miss, and places the next target at a new position. Holding or dragging does not repeat casts. Clicking outside the lake costs nothing.
+
+Eight fish use the existing items2 atlas: Sardine, Carp, Mackerel, Bass, Catfish, Flounder, Salmon and Rainbow trout. Fish are stored in inventory and can be sold. Grilled fish, fish stew and fried fish are available. Rarity is not spoken or displayed. Coin marks a middle-distance cast; shine marks a near cast, regardless of its reward.
+
+Rules are in `game_fishing.py`, integrated by `game_engine.py`. `game_config.json` contains `fishing.rod_price_multiplier`, `near_radius` (4), `middle_radius` (10), `zone_weights`, and each fish's label, internal grade and sell price. Far/middle/near weights for miss/low/medium/high are 30/40/20/10, 10/30/40/20 and 10/20/30/40. Species within each grade are equally likely. `time.action_costs.fish` controls the cast cost.
+
+`interaction.audio.fishing` controls max_gain (0.28), min_gain (0.025), distance_scale (22), position_scale (10), tts_multiplier (0.55) and bgm_multiplier (0.2). Pointer movement updates sound locally without waiting for a server response. The companion uses scene3's lake and items2's fish; the rod uses the existing name-only placeholder.
+
+Apply the project files, keep your existing saves and virtual environment, restart the server, and hard-refresh both windows. Pre-fishing saves receive empty fish inventory and no rod without resetting other progress.
+
+Validation: `python -m unittest test_fishing -v`, `node test_fishing_audio.cjs`, `node test_hardware.mjs`, plus API and asset-response checks. Physical device output, headphone listening and live browser rendering were not verified in this environment.
+
+## Seafood recipes
+
+Choose one owned fish and the vegetable ingredient in the existing ingredient screen. Cooking starts after both selections and consumes ingredients only after both paths finish. Only fish listed in a recipe’s allowed_fish are accepted. Rarity names and numerical multipliers are not narrated.
+
+- Grilled fish: fish + potato; horizontal zigzag preparation, then one full large square. Boosts iron, diamond and high-grade fish weights by 1.5/2/2.5 for 12/14/16 ticks.
+- Fish stew: fish + tomato; fish preparation, then the existing stirring path. Raises all selling prices by 25/50/75 percent (rounded down) for 3/4/5 successful sales. Failed sales and purchases do not use a charge.
+- Fried fish: fish + carrot; fish preparation, then the existing flower-shaped frying path. Gives a 30/60 percent chance to double crops, recovered seeds, minerals, fish or completed dishes for 12/14 ticks (low/medium only). Purchases and sale gold are excluded.
+
+These figures are developer settings for low/medium/high fish. Only one food effect is active at a time. New food replaces the previous effect. Existing vegetable recipes and paths remain unchanged. Fish now sell for copper's price plus 0/3/6 gold, currently 21/24/27.
+
+`game_seafood.py` handles ingredient selection and shared effects. `cooking_methods.gestures` contains reusable fish preparation, grilling, stirring and frying paths. Fish recipe stages reference them by `method`. Egg preparation is reserved as a future third preparation method. No egg gameplay is added in this update.
+
+Configure rod durability with `fishing.rod_safe_casts` and `rod_break_increment`; pricing with `rod_price_multiplier`, `fish_price_base_mineral` and `fish_price_grade_bonus`. Food variants and remaining sale charges are saved. Older saves initialize rod usage at zero. Developer tests: `python -m unittest test_fishing test_seafood -v` and `node test_fishing_audio.cjs`.
+
+## Fish cooking groups
+
+- Grilled fish: mackerel (low), carp (medium), salmon (high).
+- Fried fish: bass (low), flounder (medium). No high-grade variant is crafted.
+- Fish stew: sardine (low), catfish (medium), rainbow trout (high).
+
+Bass is now low grade; carp is medium. Recipe availability, ingredient cards, selection, cooking start and completion all enforce `recipes.<id>.allowed_fish`. Configure strengths through `quality_effects`. Successful and missed casts cost 4 ticks, twice the existing 2-tick completed-rock mining cost. Individual mining hits still consume no time.
+
+Sale prices are floored consistently in previews and payouts. Existing high-grade fried fish is merged into the medium variant on load; active seafood effects adopt the new strengths without resetting remaining duration or sale uses beyond the new maximum. Tests: `python -m unittest test_fishing test_seafood -v` (16 cases) and `node test_fishing_audio.cjs`. Hardware, browser visual rendering and headphone listening are not verified.
+
+## Fishing feedback update (current)
+
+The lake is open without a rod; only casting requires one. Rods cost 100 gold. Each valid cast costs 2 ticks. Four successful casts are safe; break chance starts at 10% on the fifth success and rises by 10 percentage points per success. Misses do not wear the rod; doubled catches count as one successful cast. The breaking cast retains its reward. Old saves initialize the new successful-catch counter at zero.
+
+`fishing.middle_area_fraction=1/6` defines the middle circle by total pad area (radius ~11.28 at 60×40). `near_radius=4` retains the center zone. Adjust rod rules with `rod_price`, `rod_safe_catches`, `rod_break_increment`, and time with `time.action_costs.fish`.
+
+Water gain is 0.12–0.85 with distance_scale 40; tts_multiplier is 1. Fishing uses basic background music at its configured 0.2 multiplier, not minigame music. A successful catch plays splash; high-grade fish play splash and shine at the same scheduled audio timestamp. Misses play neither. Rod destruction also plays destroy.
+
+Cooking uses scene3's kitchen background without the old default stew image. The companion no longer draws the lake boundary or target ripple. The tactile lake outline and visual pointer remain. Tests: `python -m unittest test_fishing test_seafood test_fishing_polish -q`, `node test_fishing_audio.cjs`, `node test_catch_audio.cjs`. Live browser rendering and headphone/device checks were not performed.
+
+
+## Fish price and effect update
+
+Fish sell prices: Simple 24, Ordinary 27, Luxurious 36 gold. Seafood sale prices use the updated ingredient prices. Luxurious grilled fish uses a 3x rare-draw weight; luxurious fish stew raises sale prices by 80%, rounded down. Seafood names use Simple / Ordinary / Luxurious; effect labels contain only the effect and omit duration and sale counts; effect lifetimes remain unchanged. Configure fish prices with fishing.fish_sell_prices.
+
+
+Food descriptions show effect duration again, matching vegetable dishes. Fish stew shows its sale-use count. Active effects show the remaining hours or sales. Simple / Ordinary / Luxurious remain on food names only.
