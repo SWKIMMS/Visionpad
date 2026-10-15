@@ -61,7 +61,7 @@ class SaveMixin:
         finally:
             random.setstate(previous_rng)
         # Migrate pre-fishing saves without replacing existing progress.
-        for key in ('fishing_target', 'fishing_last_catch', 'fishing_attempts', 'rod_casts', 'rod_catches'):
+        for key in ('fishing_target', 'fishing_last_catch', 'fishing_attempts', 'rod_casts', 'rod_catches', 'rowan_stage', 'rowan_greeted', 'rowan_dialogue', 'rowan_submit_open'):
             state.setdefault(key, copy.deepcopy(getattr(fresh, key)))
         state['resources'].setdefault('fishing_rod', 0)
         state['resources'].setdefault('fish', {})
@@ -77,6 +77,11 @@ class SaveMixin:
                 if key in recipe: buff[field] = recipe[key]
             if 'sale_uses' in recipe: buff['remaining_sales'] = min(buff.get('remaining_sales',0),recipe['sale_uses'])
             buff['remaining_ticks'] = min(buff.get('remaining_ticks',0),recipe.get('buff_ticks',0))
+        if state.get('current_page') == 'rowan_dialogue':
+            state['rowan_submit_open'] = False
+            state['current_page'] = state['current_location'] = 'town'
+        if state.get('current_page')=='rowan_submit': state['rowan_submit_open']=True
+        if state.get('current_page')=='shop_calendar': state['current_page']='shop_choice'
         expected = set(fresh.snapshot())
         if set(state) != expected: raise ValueError("Incompatible save")
         if any(type(state[k]) is not type(v) and not (type(v) in (int, float) and type(state[k]) in (int, float))

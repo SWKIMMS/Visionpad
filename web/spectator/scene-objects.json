@@ -60,6 +60,19 @@
             245
           ],
           "layer": 1
+        },
+        {
+          "id": "rowan",
+          "game_id": "town_rowan",
+          "game_type": "rowan",
+          "art": "rowan",
+          "bounds": [
+            440,
+            140,
+            110,
+            205
+          ],
+          "layer": 2
         }
       ]
     },

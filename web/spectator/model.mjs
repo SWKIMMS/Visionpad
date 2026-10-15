@@ -1,6 +1,7 @@
 export const WORLD = { width: 960, height: 600 };
 export const SCENES = ["home", "farm", "town", "mine", "fishing"];
 export const TITLES = {
+  rowan_dialogue: "Rowan", rowan_submit: "Give a vegetable", shop_calendar: "Weekly offers",
   home: "Home",
   farm: "The farm",
   town: "Village square",

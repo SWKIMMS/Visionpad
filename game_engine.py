@@ -10,10 +10,11 @@ from game_saves import SaveMixin
 from game_ui import KeypadUI
 from game_fishing import FishingMixin
 from game_seafood import SeafoodMixin
+from game_village import VillageMixin
 from spectator_state import spectator_snapshot
 
 
-class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
+class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
 
     def __init__(self, config, save_dir=None):
         config = self.prepare_display_config(config)
@@ -81,7 +82,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         for key, recipe in config.get("recipes", {}).items():
             if recipe.get("seafood"): continue
             recipe["label"] = {"tomato_carrot_stew": "Tomato carrot stew", "potato_tomato_soup": "Potato tomato soup",
-                               "vegetable_fritters": "Vegetable fritters"}.get(key, key.replace("_", " ").title())
+                               "vegetable_fritters": "Vegetable fritters", "rowan_soup": "Rowan's soup"}.get(key, key.replace("_", " ").title())
             recipe["buff_label"] = {"harvest_multiplier": "Harvest boost", "pickaxe_protection": "Pickaxe protection",
                                     "time_slow": "Time saving"}.get(recipe.get("buff_kind"), "Food effect")
             for stage in recipe.get("gesture_steps", []):
@@ -98,7 +99,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
     def compact_objects(self, objects):
         """Pack menu objects in reading order, using the same geometry for touch and output."""
         page = self.current_page
-        if page == "load_game":
+        if page in ("load_game", "shop_calendar"):
             return objects
         if page == "inventory":
             objects = [dict(o) for o in objects]
@@ -110,8 +111,8 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             return objects
         if page in ("home", "town"):
             objects = [dict(o) for o in objects]
-            facilities = [o for o in objects if o.get("type") in ("bed", "chest", "stove", "shop_npc")]
-            order = {"bed": 0, "chest": 1, "stove": 2, "shop_npc": 3}
+            facilities = [o for o in objects if o.get("type") in ("bed", "chest", "stove", "shop_npc", "rowan")]
+            order = {"bed": 0, "chest": 1, "stove": 2, "shop_npc": 3, "rowan": 4}
             facilities.sort(key=lambda o: order[o["type"]])
             for index, o in enumerate(facilities):
                 o.update(x=8 + index*16, y=7, width=12, height=10, hit_width=12, hit_height=10)
@@ -181,6 +182,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return items+arrows
 
     def reset(self):
+        self.reset_village()
         self._menu_stack = []
         self._load_return = None
         self._save_slots = []
@@ -511,6 +513,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
 
     def can_craft_recipe(self, recipe_id):
         recipe = self.get_recipe_config(recipe_id)
+        if recipe.get("quest_only"): return False
         ingredients = recipe.get("ingredients", {})
         if recipe.get("seafood"): return self.seafood_ready(recipe)
         if len(ingredients) < 2:
@@ -522,6 +525,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
 
     def get_food_sell_price(self, recipe_id):
         recipe = self.get_recipe_config(recipe_id)
+        if recipe.get("sell_price") is not None: return int(recipe["sell_price"])
         ingredient_total = 0
         for seed_id, count in recipe.get("ingredients", {}).items():
             crop_price = int(self.get_seed_config(seed_id).get("crop_price", 1))
@@ -554,7 +558,10 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             "cooking": self.get_cooking_objects,
             "shop_choice": self.get_shop_choice_objects,
             "shop_buy": self.get_shop_buy_objects,
-            "shop_sell": self.get_shop_sell_objects
+            "shop_sell": self.get_shop_sell_objects,
+            "shop_calendar": self.get_calendar_objects,
+            "rowan_dialogue": self.get_rowan_objects,
+            "rowan_submit": self.get_rowan_objects
         }
         getter = pages.get(self.current_page)
         objects = self.compact_objects(getter()) if getter else []
@@ -787,7 +794,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return objects
 
     def get_town_objects(self):
-        return [dict(obj) for obj in self.config.get("town", {}).get("objects", [])]
+        return [dict(obj) for obj in self.config.get("town", {}).get("objects", [])] + [self.rowan_object()]
 
     def get_seed_select_objects(self):
         objects = []
@@ -840,12 +847,18 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         entries.append({"id":"fishing_rod", "label":"Fishing rod", "count":self.resources.get("fishing_rod",0), "kind":"tool", "action":""})
         for key, fish in self.fishing_config()['fish'].items():
             entries.append({"id":key, "label":fish['label'], "count":self.resources['fish'].get(key,0), "kind":"fish", "action":""})
-        if self.inventory_hide_zero_items:
-            entries = [entry for entry in entries if entry["count"] > 0]
-        page_size = self.inventory_items_per_page
-        self.inventory_page_count = max(1, math.ceil(len(entries) / page_size))
-        self.inventory_page = min(self.inventory_page, self.inventory_page_count - 1)
-        entries = entries[self.inventory_page * page_size:(self.inventory_page + 1) * page_size]
+        entries = [entry for entry in entries if entry['kind']=='coin' or entry['count']>0]
+        page_size = min(12, max(2, self.inventory_items_per_page))
+        gold = next(e for e in entries if e['kind']=='coin')
+        foods = [e for e in entries if e['kind']=='food']
+        others = [e for e in entries if e['kind'] not in ('coin','food')]
+        pages = [[gold]+foods[:page_size-1]]
+        overflow=foods[page_size-1:]
+        pages += [overflow[i:i+page_size] for i in range(0,len(overflow),page_size)]
+        pages += [others[i:i+page_size] for i in range(0,len(others),page_size)]
+        self.inventory_page_count=len(pages)
+        self.inventory_page=max(0,min(self.inventory_page,self.inventory_page_count-1))
+        entries=pages[self.inventory_page]
         positions = [
             (9, 5), (23, 5), (37, 5), (51, 5),
             (9, 15), (23, 15), (37, 15), (51, 15),
@@ -1095,7 +1108,9 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
                 "id": "shop_buy_choice", "type": "shop_choice", "choice": "buy",
                 "x": 45, "y": 20, "width": 28, "height": 34, "hit_width": 30, "hit_height": 38,
                 "label": "Buy", "tts": "Buy.", "action": "shop_mode:buy"
-            }
+            },
+            {"id":"shop_calendar", "type":"calendar_button", "x":38,"y":8,"width":12,"height":12,
+             "label":"Calendar", "tts":"Calendar. Weekly offers.", "action":"open_calendar"}
         ]
 
     def get_shop_buy_objects(self):
@@ -1155,7 +1170,11 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             return
         for obj in self.get_objects():
             obj_type = obj.get("type")
-            if obj_type == "save_slot":
+            if obj_type == "rowan":
+                self.draw_rowan(obj)
+            elif obj_type in ("calendar_day", "calendar_button"):
+                self.draw_calendar(obj)
+            elif obj_type == "save_slot":
                 self.dotpad.draw_box(obj["x"], obj["y"], obj["width"], obj["height"])
                 self.dotpad.draw_box(obj["x"], obj["y"], 4, 4)
             elif obj_type == "mine_rock":
@@ -1753,6 +1772,11 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return result
 
     def _perform_action(self, action, obj):
+        if action == 'talk_rowan': return self.talk_rowan()
+        if action == 'repeat_rowan': return self.response(tts='Rowan. '+self.rowan_dialogue)
+        if action.startswith('rowan_submit:'): return self.submit_rowan_crop(action.split(':',1)[1])
+        if action == 'open_calendar': return self.open_calendar()
+        if action.startswith('calendar_day:'): return self.response(tts=self.calendar_text(int(action.split(':')[1])))
         if action == "close_load": return self.close_load_game()
         if action.startswith("load_slot:"): return self.load_game(action.split(":", 1)[1])
         if self.day_ended and action != "rest":
@@ -1832,6 +1856,8 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         if location not in ("home", "farm", "town", "mine", "fishing"):
             return self.response(tts="Location unavailable.")
         self._menu_stack.clear()
+        self.rowan_dialogue = ""
+        self.rowan_submit_open = False
         changed = location != self.current_location
         self.current_location = location
         self.current_page = location
@@ -1853,6 +1879,9 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         if location == "mine":
             text = "Mine. Tap rocks to break them." if self.resources["pickaxe"] else "Mine. Buy a pickaxe to break rocks."
             return self.response(tts=text, sfx="travel")
+        if location == 'town' and not self.rowan_greeted:
+            self.rowan_greeted=True
+            return self.response(tts='Village. Rowan would like to meet you. Select Rowan beside the shop to hear more.',sfx='travel')
         return self.response(tts=f"{name}", sfx="travel")
 
     def open_minimap(self):
@@ -1889,8 +1918,15 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return self.response(tts="Research.", sfx="open_page")
 
     def navigate_key(self, direction):
+        if self.current_page == 'inventory':
+            if self.paused: return self.response(tts='Resume first.')
+            self.get_inventory_objects()
+            delta = -1 if direction=='left' else 1
+            if not 0 <= self.inventory_page+delta < self.inventory_page_count:
+                return self.response(tts='First page.' if delta<0 else 'Last page.')
+            return self._perform_action(f'inventory_page:{delta}', {})
         # Function-key panels close with either physical navigation button.
-        if self.current_page in ('minimap', 'inventory', 'load_game'):
+        if self.current_page in ('minimap', 'load_game'):
             if self.paused: return self.response(tts='Resume first.')
             if self.sleep_until is not None: return self.response(tts='Sleeping. Please wait.')
             if self.current_page == 'load_game': return self.close_load_game()
@@ -2540,19 +2576,21 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return self.response(tts=f"{self.get_recipe_label(recipe_id)} used. {self.buff_text()}", sfx="eat_food")
 
     def open_shop(self):
+        self.rowan_dialogue = ""
+        self.rowan_submit_open = False
         if self.current_location != "town":
             self.current_location = "town"
         self.current_page = "shop_choice"
         self.clear_hover()
         self.render()
-        return self.response(tts="Shop. Sell on the left. Buy on the right.", sfx="shop_open", sound_events=[{"kind": "one_shot", "sound": "door"}])
+        return self.response(tts="Shop. Sell, buy, or check the calendar.", sfx="shop_open", sound_events=[{"kind": "one_shot", "sound": "door"}])
 
     def return_to_shop_choice(self):
         self.current_page = "shop_choice"
         self.shop_page = 0
         self.clear_hover()
         self.render()
-        return self.response(tts="Shop. Sell on the left. Buy on the right.", sfx="open_page")
+        return self.response(tts="Shop. Sell, buy, or check the calendar.", sfx="open_page")
 
     def open_shop_mode(self, mode):
         self.shop_page = 0
@@ -2582,6 +2620,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             label = "Fertilizer"
         else:
             return self.response(tts="Item unavailable.", sfx="error")
+        price = self.market_price(price, kind, "buy")
         if int(self.resources.get("coin", 0)) < price:
             return self.response(tts=f"Not enough gold. {label} costs {price} gold.", sfx="error")
         self.resources["coin"] -= price
@@ -2623,7 +2662,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             self.resources["foods"][item_id] = count - 1
         else:
             return self.response(tts="Cannot sell this item.", sfx="error")
-        price = self.sale_price(price)
+        price = self.market_price(price, kind, "sell")
         self.resources["coin"] += price
         self.consume_sale()
         self.clear_hover()
@@ -2668,6 +2707,9 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         objects = self.get_objects()
         return {
             "spectator": spectator_snapshot(self, objects),
+            "dialogue": {"speaker":"Rowan", "text":self.rowan_dialogue} if self.current_page=='town' and self.rowan_dialogue else None,
+            "rowan_submission": self.current_page=="rowan_submit" and self.rowan_submit_open,
+            "calendar": {"weekday":self.calendar_days()[self.weekday_index()]['name'], "offer":self.calendar_text()},
             "fishing": self.fishing_public_state(),
             "objects": [{"id": o["id"], "label": o.get("label", ""),
                          "type": o.get("type"), "x": o.get("x"), "y": o.get("y"),
@@ -2884,7 +2926,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         self.shop_page = max(0, min(self.shop_page, pages - 1))
         objects = []
         for i, (kind, item_id, label, count, price) in enumerate(entries[self.shop_page * page_size:(self.shop_page + 1) * page_size]):
-            if mode == "sell": price = self.sale_price(price)
+            price = self.market_price(price, kind, mode)
             x, y = (9, 23, 37, 51)[i % 4], (5, 15, 25)[i // 4]
             text = f"{label}, {price} gold. stock {count} " if mode == "buy" else f"{label}, stock {count}. Sell {price} gold"
             if kind == "pickaxe" and count:
@@ -2911,6 +2953,7 @@ class GameEngine(SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             price, label = self.get_mineral_price(item_id, buying=True), self.MINERAL_LABELS[item_id]
         else:
             return self.response(tts="Item unavailable.", sfx="error")
+        price = self.market_price(price, kind, "buy")
         if self.resources["coin"] < price:
             return self.response(tts=f"Not enough gold. Need {price} gold for {label}.", sfx="error")
         self.resources["coin"] -= price

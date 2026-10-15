@@ -59,7 +59,16 @@
     "shop_buy": "구매",
     "shop_sell": "판매",
     "mine": "광산",
-    "fishing": "Fishing lake"
+    "fishing": "Fishing lake",
+    "rowan_dialogue": {
+      "label": "Rowan"
+    },
+    "rowan_submit": {
+      "label": "Give a vegetable"
+    },
+    "shop_calendar": {
+      "label": "Calendar"
+    }
   },
   "fertilizer": {
     "growth_day_bonus": 1,
@@ -1272,6 +1281,198 @@
         "bass",
         "flounder"
       ]
+    },
+    "rowan_soup": {
+      "label": "Rowan's soup",
+      "ingredients": {
+        "tomato": 1,
+        "carrot": 1
+      },
+      "buff_ticks": 6,
+      "gesture": {
+        "kind": "cut",
+        "label": "재료 자르기",
+        "tolerance": 4.5,
+        "path": [
+          [
+            12,
+            13
+          ],
+          [
+            19,
+            27
+          ],
+          [
+            26,
+            13
+          ],
+          [
+            33,
+            27
+          ],
+          [
+            40,
+            13
+          ],
+          [
+            47,
+            27
+          ]
+        ]
+      },
+      "gesture_steps": [
+        {
+          "kind": "cut",
+          "label": "재료 자르기",
+          "tolerance": 4.5,
+          "path": [
+            [
+              12,
+              13
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              26,
+              13
+            ],
+            [
+              33,
+              27
+            ],
+            [
+              40,
+              13
+            ],
+            [
+              47,
+              27
+            ]
+          ]
+        },
+        {
+          "kind": "stir",
+          "label": "젓기",
+          "tolerance": 4.0,
+          "path": [
+            [
+              30.0,
+              9.0
+            ],
+            [
+              34.34,
+              9.53
+            ],
+            [
+              38.25,
+              10.75
+            ],
+            [
+              41.49,
+              12.56
+            ],
+            [
+              43.86,
+              14.82
+            ],
+            [
+              45.22,
+              17.36
+            ],
+            [
+              45.51,
+              20.0
+            ],
+            [
+              44.74,
+              22.56
+            ],
+            [
+              43.0,
+              24.86
+            ],
+            [
+              40.44,
+              26.76
+            ],
+            [
+              37.26,
+              28.14
+            ],
+            [
+              33.69,
+              28.92
+            ],
+            [
+              30.0,
+              29.07
+            ],
+            [
+              26.43,
+              28.61
+            ],
+            [
+              23.24,
+              27.58
+            ],
+            [
+              20.61,
+              26.08
+            ],
+            [
+              18.71,
+              24.22
+            ],
+            [
+              17.65,
+              22.14
+            ],
+            [
+              17.46,
+              20.0
+            ],
+            [
+              18.13,
+              17.94
+            ],
+            [
+              19.57,
+              16.1
+            ],
+            [
+              21.66,
+              14.6
+            ],
+            [
+              24.23,
+              13.53
+            ],
+            [
+              27.08,
+              12.94
+            ],
+            [
+              30.0,
+              12.85
+            ]
+          ]
+        }
+      ],
+      "icon": [
+        "0011100",
+        "0001000",
+        "1111111",
+        "0100010",
+        "0011100"
+      ],
+      "buff_kind": "harvest_multiplier",
+      "buff_multiplier": 1.5,
+      "buff_label": "수확량 증가",
+      "hidden_recipe": true,
+      "sell_price": 100,
+      "quest_only": true
     }
   },
   "home": {
@@ -1763,7 +1964,8 @@
       "bgm_shop_pages": [
         "shop_choice",
         "shop_buy",
-        "shop_sell"
+        "shop_sell",
+        "shop_calendar"
       ],
       "one_shot_gain_links": {
         "step": "door"
@@ -2580,6 +2782,67 @@
     ],
     "planned_preparation_methods": [
       "egg_prep"
+    ]
+  },
+  "rowan": {
+    "seed_gift_each": 1,
+    "vegetable_reward_gold": 100
+  },
+  "weekly_market": {
+    "discount_percent": 20,
+    "bonus_percent": 20,
+    "days": [
+      {
+        "name": "Monday",
+        "buy": [
+          "mineral"
+        ],
+        "description": "Ore costs {percent} percent less."
+      },
+      {
+        "name": "Tuesday",
+        "sell": [
+          "food"
+        ],
+        "description": "Cooked food sells for {percent} percent more."
+      },
+      {
+        "name": "Wednesday",
+        "sell": [
+          "fish"
+        ],
+        "description": "Fish sells for {percent} percent more."
+      },
+      {
+        "name": "Thursday",
+        "buy": [
+          "seed"
+        ],
+        "description": "Seeds cost {percent} percent less."
+      },
+      {
+        "name": "Friday",
+        "sell": [
+          "mineral"
+        ],
+        "description": "Ore sells for {percent} percent more."
+      },
+      {
+        "name": "Saturday",
+        "buy": [
+          "fertilizer",
+          "pickaxe",
+          "fishing_rod"
+        ],
+        "description": "Fertilizer, pickaxes, and fishing rods cost {percent} percent less."
+      },
+      {
+        "name": "Sunday",
+        "sell": [
+          "all"
+        ],
+        "description": "Everything sells for {percent} percent more."
+      }
     ]
   }
 }

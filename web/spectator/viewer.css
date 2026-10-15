@@ -73,7 +73,7 @@
   background: #25362b;
   isolation: isolate;
 }
-.dv-stage canvas {
+.dv-stage > canvas {
   width: 100%;
   height: auto;
   display: block;
@@ -355,3 +355,21 @@
 :is([data-page="inventory"],[data-page="shop_buy"],[data-page="shop_sell"]) .dv-item-top canvas {width:6.5cqw;height:6.5cqw;}
 [data-page="inventory"] .dv-item-top canvas {width:7.3cqw;height:7.3cqw;}
 :is([data-page="inventory"],[data-page="shop_buy"],[data-page="shop_sell"]) .dv-card strong {font-size:1.35cqw;}
+
+.dv-dialogue {position:absolute;left:3%;right:3%;top:10%;display:flex;align-items:center;gap:2cqw;padding:1.5cqw;border:4px solid #ff8c22;border-radius:12px;background:#fff2ddeb;color:#241c13;box-shadow:0 6px 30px #0008;}
+.dv-dialogue[hidden]{display:none;}
+.dv-dialogue canvas{width:18%;height:auto;flex:none;image-rendering:pixelated;}
+.dv-dialogue h3{font-size:2.7cqw;margin:0 0 .6cqw;}
+.dv-dialogue p{font-size:2.1cqw;line-height:1.45;margin:0 0 1cqw;}
+.dv-dialogue small{font-size:1.5cqw;color:#384c2f;}
+.dotdew-observer[data-page="rowan_submit"] .dv-menu{top:53%;left:3%;right:3%;bottom:3%;}
+.dotdew-observer[data-page="rowan_submit"] .dv-subtitle{display:none;}
+.dotdew-observer[data-page="shop_calendar"] .dv-cards{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));}
+.dotdew-observer[data-page="shop_calendar"] .dv-card small{display:block;font-size:1.65cqw;color:#243c1b;line-height:1.4;}
+
+.dv-dialogue canvas {aspect-ratio:6/7;object-fit:contain;}
+.dotdew-observer[data-submission="true"] .dv-menu{top:53%;left:3%;right:3%;bottom:3%;}
+.dotdew-observer[data-submission="true"] .dv-subtitle{display:none;}
+
+.dotdew-observer[data-page="rowan_submit"] .dv-menu,
+.dotdew-observer[data-submission="true"] .dv-menu{inset:9% 7% 5%;max-height:none;}

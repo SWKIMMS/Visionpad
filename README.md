@@ -348,3 +348,43 @@ Fish sell prices: Simple 24, Ordinary 27, Luxurious 36 gold. Seafood sale prices
 
 
 Food descriptions show effect duration again, matching vegetable dishes. Fish stew shows its sale-use count. Active effects show the remaining hours or sales. Simple / Ordinary / Luxurious remain on food names only.
+
+
+## Rowan and weekly offers
+
+Rowan stands beside the shop in the village. Select him to read and hear his dialogue. Either direction button closes the conversation; F1 opens the map and F2 opens the inventory. The visual companion shows his portrait and dialogue without sending game input.
+
+On the first conversation Rowan gives one bowl of Rowan's soup. It uses the tomato carrot stew image and harvest effect, has a base sale price of 100 gold, and cannot be cooked. Use it from the inventory or sell it, then speak to Rowan to receive one seed of each crop. Speak to him again for the farming tutorial. Return with any one crop and select it on the submission screen to receive 100 gold. Gifts and rewards are granted once. Quest progress is included in saves; older saves start Rowan's quests from the beginning.
+
+Game day 1 is Monday. Open Shop → Calendar to hear today's offer or select another day. Offers repeat every seven days:
+
+| Day | Offer |
+|---|---|
+| Monday | Ore purchases: 20% off |
+| Tuesday | Cooked food sales: 20% more |
+| Wednesday | Fish sales: 20% more |
+| Thursday | Seed purchases: 20% off |
+| Friday | Ore sales: 20% more |
+| Saturday | Fertilizer, pickaxes and fishing rods: 20% off |
+| Sunday | All sales: 20% more |
+
+Prices are rounded down after the daily modifier. An active sale-food effect then applies to that price, rounded down again. Research costs and quest rewards are not affected.
+
+The first inventory page contains gold and usable food. Materials, seeds, crops, fish and tools start on subsequent pages. If more than eleven foods are owned, extra food pages appear before other items; nothing is discarded. Left and right change pages. F2 closes inventory, and F1 switches to the map.
+
+`game_village.py` contains Rowan's quest state, dialogue, crop submission and daily market calculations. `game_config.json` exposes `rowan.seed_gift_each`, `rowan.vegetable_reward_gold`, `weekly_market.discount_percent`, `weekly_market.bonus_percent`, and the seven `weekly_market.days` entries. Rowan's soup is defined in `recipes.rowan_soup`.
+
+`web/spectator/assets/rowan.png` is a transparent atlas containing the dialogue portrait, standing character and fishing rod. Crop rectangles and scene placement are registered in `visual-assets.json` and `scene-objects.json`; existing images are reused. The atlas was generated with the built-in image generator using a cozy pixel-art farmer with auburn hair, beard, straw hat, green shirt and brown overalls, plus a wooden fishing rod on a transparent background.
+
+Validation: `python -m unittest test_village -v` and `node test_hardware.mjs`. Camera and physical-pad checks require the separately supplied tracking module and hardware.
+
+
+## In-place dialogue and tool visuals
+
+Talking to Rowan keeps the village page and its navigation. Only vegetable submission opens a separate selection page, with owned crops and no NPC icon. Select one crop to submit it and return to the village, or use either direction button to cancel. The shop Calendar button now speaks the seven short daily offers without opening another page.
+
+The portrait canvas uses its own 6:7 aspect ratio; the scene's 8:5 ratio applies only to the main canvas. The detailed fishing rod appears at the lake while a rod is owned. A raised pickaxe appears beside the focused mine rock only while a pickaxe is owned. These are read-only visual cues.
+
+`assets/items3.png` is a 3x3 transparent item atlas, registered in `visual-assets.json`. Row order: fishing rod / calendar / bird; coffee beans / coffee / scissors; animal feed / kitchen knife / bug net. The small rod is used in inventory and shop cards; the original detailed rod is registered as `fishing_rod_equipped`. The other seven future-content items are assets only, not new gameplay.
+
+Generated with the built-in image tool: nine isolated, chunky pixel-art farming inventory sprites, warm colors, transparent background, no text or frames, equal 3x3 cells. All existing assets are retained.

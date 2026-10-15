@@ -99,7 +99,7 @@ class FishingMixin:
     def buy_fishing_rod(self):
         if self.resources.get('fishing_rod', 0):
             return self.response(tts='Only one fishing rod allowed.')
-        price = self.get_rod_price()
+        price = self.market_price(self.get_rod_price(), "fishing_rod", "buy")
         if self.resources['coin'] < price:
             return self.response(tts=f'Not enough gold. Need {price} gold for Fishing rod.')
         self.resources['coin'] -= price

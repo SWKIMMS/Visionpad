@@ -19,7 +19,7 @@ document.head.append(css);
 const root = document.createElement("section");
 root.className = "dotdew-observer";
 root.setAttribute("aria-label", "Dotdew Valley visual companion");
-root.innerHTML = `<header class="dv-heading"><div><div class="dv-eyebrow"><span class="dv-live"></span>Visual companion · read only</div><h2>Dotdew Valley</h2></div><div class="dv-tools"><button type="button" data-view="detach">Open window</button></div></header><div class="dv-stage"><canvas width="960" height="600" aria-label="Visual representation of the current game"></canvas><div class="dv-hud"><span class="dv-badge" data-place>Waiting for the game</span><span class="dv-badge" data-clock>Live view</span></div><section class="dv-menu" hidden><h3></h3><div class="dv-subtitle"></div><div class="dv-cards"></div></section><div class="dv-shade" hidden></div></div><footer class="dv-time-footer"><span class="dv-time-label">Activity time</span><div class="dv-time-gauge" role="progressbar" aria-label="Activity time used" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><div class="dv-time-fill"></div></div></footer>`;
+root.innerHTML = `<header class="dv-heading"><div><div class="dv-eyebrow"><span class="dv-live"></span>Visual companion · read only</div><h2>Dotdew Valley</h2></div><div class="dv-tools"><button type="button" data-view="detach">Open window</button></div></header><div class="dv-stage"><canvas width="960" height="600" aria-label="Visual representation of the current game"></canvas><div class="dv-hud"><span class="dv-badge" data-place>Waiting for the game</span><span class="dv-badge" data-clock>Live view</span></div><section class="dv-menu" hidden><h3></h3><div class="dv-subtitle"></div><div class="dv-cards"></div></section><section class="dv-dialogue" hidden aria-label="Rowan dialogue"><canvas width="180" height="210"></canvas><div><h3>Rowan</h3><p></p><small>You are in the village. Select another place or press F1 to leave.</small></div></section><div class="dv-shade" hidden></div></div><footer class="dv-time-footer"><span class="dv-time-label">Activity time</span><div class="dv-time-gauge" role="progressbar" aria-label="Activity time used" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><div class="dv-time-fill"></div></div></footer>`;
 (document.querySelector(".container") || document.body).append(root);
 const canvas = root.querySelector(".dv-stage>canvas"),
   ctx = canvas.getContext("2d");
@@ -27,8 +27,8 @@ ctx.imageSmoothingEnabled = false;
 const sheets = {};
 let sceneDefinitions={scenes:{}}, assetCatalog={backgrounds:{},facilities:{},objects:{},pages:{}};
 const assetsReady=Promise.all([
- fetch(new URL('scene-objects.json?v=fishing-polish-4',base)).then(r=>{if(!r.ok)throw new Error('Scene registry unavailable');return r.json();}).then(d=>{sceneDefinitions=d;}),
- fetch(new URL('visual-assets.json?v=fishing-polish-4',base)).then(r=>{if(!r.ok)throw new Error('Asset registry unavailable');return r.json();}).then(async d=>{assetCatalog=d;await Promise.all(Object.entries(d.textures||{}).map(([name,url])=>new Promise(resolve=>{const i=new Image();i.onload=()=>{sheets[name]=i;resolve();};i.onerror=()=>resolve();i.src=new URL(url,base);})));})
+ fetch(new URL('scene-objects.json?v=rowan-2',base)).then(r=>{if(!r.ok)throw new Error('Scene registry unavailable');return r.json();}).then(d=>{sceneDefinitions=d;}),
+ fetch(new URL('visual-assets.json?v=rowan-2',base)).then(r=>{if(!r.ok)throw new Error('Asset registry unavailable');return r.json();}).then(async d=>{assetCatalog=d;await Promise.all(Object.entries(d.textures||{}).map(([name,url])=>new Promise(resolve=>{const i=new Image();i.onload=()=>{sheets[name]=i;resolve();};i.onerror=()=>resolve();i.src=new URL(url,base);})));})
 ]).catch(error=>{console.warn(error);}).then(()=>{menuKey='';if(state)updateUI();});
 let animationFrame = 0;
 let state = null,
@@ -166,6 +166,11 @@ function mine() {
       ctx.stroke();
     }
     outline(b.x, b.y, b.w, b.h, r.id);
+    if(state.resources?.pickaxe>0 && focused(r.id)) {
+      const x=Math.min(865,Math.max(15,b.x+b.w-20)), y=Math.max(60,b.y-55);
+      ctx.save();ctx.translate(x+40,y+40);ctx.rotate(-Math.PI/7);
+      sprite('pickaxe',-45,-45,90,90);ctx.restore();
+    }
   }
 }
 function fishing() {
@@ -179,6 +184,8 @@ function fishing() {
     ctx.strokeStyle='#ffffff';ctx.lineWidth=3;
     ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.stroke();
   }
+  if(state.resources?.fishing_rod>0)
+    drawAsset(assetCatalog.objects.fishing_rod_equipped,25,320,200,250);
   const last=f.last_catch;
   if(last){
     ctx.fillStyle='#162b22ed';ctx.fillRect(620,480,325,100);
@@ -471,9 +478,10 @@ function appendQuantities(card,o) {
 }
 function menus() {
   const show =
-    !fallbackPage() && (renderers.has(state.page)||assetCatalog.pages[state.page]?.items===true) && !SCENES.includes(state.page) &&
+    !fallbackPage() && (renderers.has(state.page)||assetCatalog.pages[state.page]?.items===true) && (!SCENES.includes(state.page) || state.rowan_submission) &&
     ![
       "minimap",
+      "rowan_dialogue",
       "cooking",
       "water_minigame",
       "fertilizer_minigame",
@@ -482,7 +490,7 @@ function menus() {
   const menu = q(".dv-menu");
   menu.hidden = !show;
   if (!show) return;
-  const cards = publicCards(state),
+  const cards = state.rowan_submission ? publicCards(state).filter(o=>o.id.startsWith("rowan_crop_")) : publicCards(state),
     key = JSON.stringify([
       state.page,
       cards,
@@ -495,7 +503,7 @@ function menus() {
   root.dataset.page=state.page;
   menu.style.left=state.page.startsWith('shop_')?'3%':'';
   menu.style.right=state.page.startsWith('shop_')?'28%':'';
-  q(".dv-menu h3").textContent = TITLES[state.page] || state.page_name;
+  q(".dv-menu h3").textContent = state.rowan_submission ? "Give a vegetable" : TITLES[state.page] || state.page_name;
   q(".dv-subtitle").textContent =
     state.page === "inventory"
       ? `Page ${state.inventory?.page || 1} of ${state.inventory?.pages || 1}`
@@ -506,9 +514,9 @@ function menus() {
           : "Player selection";
   const grid = q(".dv-cards");
   grid.replaceChildren();
-  grid.style.gridTemplateColumns = ['research','recipe_select','ingredient_select'].includes(state.page)?'repeat(3,minmax(0,1fr))'
+  grid.style.gridTemplateColumns = state.rowan_submission?'repeat(3,minmax(0,1fr))':['research','recipe_select','ingredient_select'].includes(state.page)?'repeat(3,minmax(0,1fr))'
     :state.page==='plot_detail'?'repeat(3,minmax(0,1fr))'
-    :state.page==='shop_choice'?'repeat(2,minmax(0,1fr))':'repeat(4,minmax(0,1fr))';
+    :['shop_choice','rowan_submit'].includes(state.page)?'repeat(3,minmax(0,1fr))':'repeat(4,minmax(0,1fr))';
   // Use actual tactile row/column order, including sparse final rows.
   const xs=[...new Set(cards.map(o=>o.x).filter(Number.isFinite))].sort((a,b)=>a-b);
   const ys=[...new Set(cards.map(o=>o.y).filter(Number.isFinite))].sort((a,b)=>a-b);
@@ -535,6 +543,11 @@ function menus() {
       if(description){const small=document.createElement('small');small.textContent=description;card.append(small);}
     }
     else {card.classList.add('dv-placeholder');card.append(title);}
+    if(state.page==='shop_calendar') {
+      const small=document.createElement('small');
+      small.textContent=(state.objects||[]).find(item=>item.id===o.id)?.description||'';
+      card.append(small);
+    }
     grid.append(card);
   }
   if (!cards.length) {
@@ -552,12 +565,23 @@ function drawTimeGauge() {
   gauge.setAttribute('aria-valuenow',String(used));
   gauge.setAttribute('aria-valuetext',`${used} of ${total} used`);
 }
+function dialogueUI() {
+  const panel=q('.dv-dialogue'), dialogue=state.dialogue;
+  panel.hidden=!dialogue;
+  root.dataset.dialogue=dialogue?'true':'false';
+  if(!dialogue)return;
+  panel.querySelector('p').textContent=dialogue.text;
+  const c=panel.querySelector('canvas'),p=c.getContext('2d');p.clearRect(0,0,c.width,c.height);
+  drawAsset(assetCatalog.objects.rowan_portrait,0,0,c.width,c.height,p);
+}
 function updateUI() {
+  root.dataset.page=state.page;
+  root.dataset.submission=state.rowan_submission?'true':'false';
   const ph = phase(state);
   q("[data-place]").textContent =
     TITLES[state.page] || state.page_name || "Dotdew Valley";
   q("[data-clock]").textContent =
-    `Day ${state.day} · ${ph.name} · ${state.resources?.coin ?? 0} gold`;
+    `Day ${state.day} · ${state.calendar?.weekday || ph.name} · ${state.resources?.coin ?? 0} gold`;
   drawTimeGauge();
   const shade = q(".dv-shade");
   shade.hidden = !state.sleeping && !state.paused;
@@ -575,6 +599,7 @@ function updateUI() {
     shade.append(title);
   }
   menus();
+  dialogueUI();
   render();
 }
 export function receive(envelope) {

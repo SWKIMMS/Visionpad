@@ -7,7 +7,9 @@
     "facilities": "assets/facilities.png",
     "scenes2": "assets/scenes2.png",
     "scene3": "assets/scene3.png",
-    "items2": "assets/items2.png"
+    "items2": "assets/items2.png",
+    "rowan": "assets/rowan.png",
+    "items3": "assets/items3.png"
   },
   "backgrounds": {
     "home": {
@@ -154,6 +156,15 @@
         570,
         561,
         409
+      ]
+    },
+    "rowan": {
+      "texture": "rowan",
+      "source": [
+        765,
+        0,
+        355,
+        836
       ]
     }
   },
@@ -580,6 +591,123 @@
         310,
         250
       ]
+    },
+    "rowan_portrait": {
+      "texture": "rowan",
+      "source": [
+        0,
+        65,
+        720,
+        771
+      ]
+    },
+    "fishing_rod": {
+      "texture": "items3",
+      "source": [
+        0,
+        0,
+        418,
+        418
+      ]
+    },
+    "rowan_soup": {
+      "texture": "items",
+      "source": [
+        760,
+        516,
+        212,
+        178
+      ]
+    },
+    "fishing_rod_equipped": {
+      "texture": "rowan",
+      "source": [
+        1200,
+        0,
+        681,
+        836
+      ]
+    },
+    "calendar": {
+      "texture": "items3",
+      "source": [
+        418,
+        0,
+        418,
+        418
+      ]
+    },
+    "bird": {
+      "texture": "items3",
+      "source": [
+        836,
+        0,
+        418,
+        418
+      ]
+    },
+    "coffee_beans": {
+      "texture": "items3",
+      "source": [
+        0,
+        418,
+        418,
+        418
+      ]
+    },
+    "coffee": {
+      "texture": "items3",
+      "source": [
+        418,
+        418,
+        418,
+        418
+      ]
+    },
+    "scissors": {
+      "texture": "items3",
+      "source": [
+        836,
+        418,
+        418,
+        418
+      ]
+    },
+    "animal_feed": {
+      "texture": "items3",
+      "source": [
+        0,
+        836,
+        418,
+        418
+      ]
+    },
+    "kitchen_knife": {
+      "texture": "items3",
+      "source": [
+        418,
+        836,
+        418,
+        418
+      ]
+    },
+    "bug_net": {
+      "texture": "items3",
+      "source": [
+        836,
+        836,
+        418,
+        418
+      ]
+    },
+    "shop_calendar": {
+      "texture": "items3",
+      "source": [
+        418,
+        0,
+        418,
+        418
+      ]
     }
   },
   "pages": {
@@ -642,6 +770,15 @@
     },
     "fishing": {
       "renderer": "fishing"
+    },
+    "rowan_dialogue": {
+      "renderer": "rowan_dialogue"
+    },
+    "rowan_submit": {
+      "renderer": "rowan_submit"
+    },
+    "shop_calendar": {
+      "renderer": "shop_calendar"
     }
   }
 }

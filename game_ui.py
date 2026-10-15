@@ -30,7 +30,7 @@ class KeypadUI:
         all_arrows = [o for o in self.get_layout_objects() if o.get('type') == 'arrow']
         arrows = [o for o in all_arrows if ('left' if o.get('direction') == 'left' else 'right') == direction]
         if (not arrows and direction == 'right'
-                and self.current_page not in ('farm', 'home', 'town', 'mine', 'fishing')
+                and self.current_page not in ('farm', 'home', 'town', 'mine', 'fishing', 'inventory')
                 and all_arrows and all(o.get('direction') == 'left' for o in all_arrows)):
             arrows = all_arrows
         return arrows
