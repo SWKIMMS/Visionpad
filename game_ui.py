@@ -42,7 +42,8 @@ class KeypadUI:
         # Previous page takes precedence; on the first shop page Left means back.
         arrows.sort(key=lambda o: not o.get('action','').startswith(('shop_page:', 'inventory_page:')))
         if not arrows: return self.response(tts=f'Cannot go {direction}.')
-        obj = arrows[0]
+        # Keep the pressed key direction even when Right aliases a Back action.
+        obj = dict(arrows[0], direction=direction)
         self.pointer_pressed = self.care_dragging = self.harvest_dragging = self.cooking_dragging = False
         self.drag_tool = None
         result = self.perform_action(obj.get('action',''), obj)

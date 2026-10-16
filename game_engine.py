@@ -1702,7 +1702,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         result = self._perform_action(action, obj)
         after = (self.current_page, self.current_location, self.inventory_page, self.shop_page)
         if obj.get("type") == "arrow" and before != after:
-            result.setdefault("sound_events", []).append({"kind": "one_shot", "sound": "step"})
+            result.setdefault("sound_events", []).append({"kind": "one_shot", "sound": "step", "direction": obj.get("direction")})
         return result
 
     def _perform_action(self, action, obj):

@@ -9,8 +9,9 @@ class GameAudio {
         this.now = options.now || (() => performance.now());
         // Fallbacks support old configs; game_config.json overrides these via state.
         this.settings = {
-            default_volume:0.7,
-            task_spatial:{enabled:true,mix:0.25,horizontal_range:0.8,depth_range:0.6,smoothing_seconds:0.05},
+            default_volume:0.9,
+            master_gain:1.0,
+            task_spatial:{enabled:true,dry_gain:0.35,spatial_gain:1,min_gain:0.65,max_gain:1,distance_scale:40,position_scale:10,smoothing_seconds:0.03},
             fishing:{max_gain:0.85,min_gain:0.12,distance_scale:40,position_scale:10,tts_multiplier:1,bgm_multiplier:0.2},
             bgm_gain:{basic:0.22,minigame:0.10,shop:0.40},
             one_shot_gain:{splash:0.85,sleep:0.8,door:0.7,coin:0.65,pickaxe:0.8,break:0.8,shine:0.8,destroy:0.8},
@@ -27,7 +28,7 @@ class GameAudio {
         this.fishingSource=null; this.fishingToken=0; this.fishingPending=false; this.fishingPosition=null;
         this.latestState = null; this.bgm = null; this.bgmName = null; this.bgmToken = 0;
         this.oneShotSources = new Set(); this.oneShotToken = 0;
-        this.enabled = true; this.volume = 0.7; this.ducked = false;
+        this.enabled = true; this.volume = 0.9; this.ducked = false;
         this.held = false; this.work = null; this.workName = null; this.workToken = 0;
         this.buffers = new Map(); this.raw = new Map(); this.rewardSources = new Set();
         this.clickSources = new Set(); this.clickToken = 0;
@@ -72,42 +73,65 @@ class GameAudio {
             if (this.latestState) {this.syncBackground(this.latestState);this.syncFishing(this.latestState);}
         } catch {this.onStatus('Audio unavailable · Follow the captions');}
     }
-    createTaskSpatialBus() {
-        // Keep most of the signal centered; only a small part supplies direction.
-        // This bus is independent of fishing, rewards, narration and background music.
-        this.taskInput = this.context.createGain();
-        this.taskDry = this.context.createGain();
-        this.taskInput.connect(this.taskDry); this.taskDry.connect(this.master);
-        if (typeof this.context.createPanner === 'function') {
-            this.taskPanner = this.context.createPanner();
-            this.taskPanner.panningModel = 'HRTF';
-            this.taskPanner.rolloffFactor = 0; // No distance-based volume loss.
-            this.taskWet = this.context.createGain();
-            this.taskInput.connect(this.taskPanner);
-            this.taskPanner.connect(this.taskWet); this.taskWet.connect(this.master);
-        }
-        this.updateTaskPosition();
+    relativeSound(source,listener,cfg) {
+        const dx=source[0]-listener[0],dy=source[1]-listener[1];
+        const proximity=Math.max(0,1-Math.hypot(dx,dy)/Math.max(1,cfg.distance_scale));
+        return {x:dx/Math.max(1,cfg.position_scale),z:dy/Math.max(1,cfg.position_scale),
+                gain:cfg.min_gain+(cfg.max_gain-cfg.min_gain)*proximity**2};
     }
-    updateTaskPosition() {
-        if (!this.taskDry) return;
-        const cfg = this.settings.task_spatial;
-        const mix = cfg.enabled && this.taskPanner ? Math.max(0, Math.min(1, Number(cfg.mix)||0)) : 0;
-        const t = this.context.currentTime, smooth = Math.max(0.01, Number(cfg.smoothing_seconds)||0.05);
-        this.taskDry.gain.setTargetAtTime(1-mix,t,smooth);
-        if (this.taskWet) this.taskWet.gain.setTargetAtTime(mix,t,smooth);
-        if (!this.taskPanner) return;
-        const w = Math.max(2, this.latestState?.width || 60), h = Math.max(2, this.latestState?.height || 40);
-        const [x,y] = this.lastPosition || [(w-1)/2,(h-1)/2];
-        const nx = Math.max(-1,Math.min(1,2*x/(w-1)-1));
-        const ny = Math.max(-1,Math.min(1,2*y/(h-1)-1));
-        // Fixed listener at screen center: left/right and upper/lower depth.
-        const px = nx * cfg.horizontal_range, pz = ny * cfg.depth_range;
-        const p = this.taskPanner;
-        if (p.positionX) {
-            p.positionX.setTargetAtTime(px,t,smooth);
-            p.positionY.setTargetAtTime(0,t,smooth);
-            p.positionZ.setTargetAtTime(pz,t,smooth);
-        } else p.setPosition(px,0,pz);
+    placeSound(panner,position,smooth=0.03,immediate=false) {
+        if(!panner)return;
+        const set=(param,value)=>{
+            if(immediate)param.value=value;
+            else param.setTargetAtTime(value,this.context.currentTime,smooth);
+        };
+        if(panner.positionX){set(panner.positionX,position.x);set(panner.positionY,0);set(panner.positionZ,position.z);}
+        else panner.setPosition(position.x,0,position.z);
+    }
+    createSpatialBus(position=this.lastPosition) {
+        const input=this.context.createGain(), gain=this.context.createGain(), dry=this.context.createGain();
+        input.connect(dry);dry.connect(this.master);
+        const panner=typeof this.context.createPanner==='function'?this.context.createPanner():null;
+        if(panner){
+            panner.panningModel='HRTF';panner.rolloffFactor=0;
+            input.connect(panner);panner.connect(gain);
+        } else input.connect(gain);
+        gain.connect(this.master);
+        const bus={input,panner,gain,dry,disconnect(){input.disconnect();panner?.disconnect();gain.disconnect();dry.disconnect();}};
+        this.positionSpatialBus(bus,position,true);
+        return bus;
+    }
+    positionSpatialBus(bus,position=this.lastPosition,immediate=false) {
+        if(!bus)return;
+        const cfg=this.settings.task_spatial;
+        const center=[((this.latestState?.width||60)-1)/2,((this.latestState?.height||40)-1)/2];
+        // Same source-minus-listener calculation as fishing. Here only the source moves.
+        const sound=cfg.enabled?this.relativeSound(position||center,center,cfg):{x:0,z:0,gain:1};
+        const smooth=Math.max(0.01,Number(cfg.smoothing_seconds)||0.03);
+        this.placeSound(bus.panner,sound,smooth,immediate);
+        const spatialGain=cfg.enabled?sound.gain*Math.max(0,Number(cfg.spatial_gain)||0):0;
+        const dryGain=cfg.enabled?Math.max(0,Number(cfg.dry_gain)||0):1;
+        if(immediate){bus.gain.gain.value=spatialGain;bus.dry.gain.value=dryGain;}
+        else {
+            bus.gain.gain.setTargetAtTime(spatialGain,this.context.currentTime,smooth);
+            bus.dry.gain.setTargetAtTime(dryGain,this.context.currentTime,smooth);
+        }
+    }
+    createTaskSpatialBus() {
+        this.taskBus=this.createSpatialBus();this.taskInput=this.taskBus.input;
+    }
+    updateTaskPosition() {this.positionSpatialBus(this.taskBus);}
+    playTone(frequency,duration=0.09,volume=0.06,position=this.lastPosition) {
+        if(!this.enabled)return;
+        this.unlock();if(!this.context)return;
+        const bus=this.createSpatialBus(position), oscillator=this.context.createOscillator(),gain=this.context.createGain();
+        oscillator.frequency.value=frequency; // Preserve the original cue pitch.
+        gain.gain.setValueAtTime(volume,this.context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001,this.context.currentTime+duration);
+        oscillator.connect(gain);gain.connect(bus.input);
+        this.oneShotSources.add(oscillator);
+        oscillator.onended=()=>{this.oneShotSources.delete(oscillator);oscillator.disconnect();gain.disconnect();bus.disconnect();};
+        oscillator.start();oscillator.stop(this.context.currentTime+duration);
     }
     load(name) {
         if (!this.context || !this.urls[name]) return Promise.resolve(null);
@@ -117,7 +141,7 @@ class GameAudio {
     }
     setVolume(value) {
         this.volume = Math.max(0,Math.min(1,Number(value)||0));
-        if (this.master) this.master.gain.setTargetAtTime(this.enabled ? this.volume : 0,this.context.currentTime,0.015);
+        if (this.master) this.master.gain.setTargetAtTime(this.enabled ? this.volume * Math.max(0,Number(this.settings.master_gain) || 0) : 0,this.context.currentTime,0.015);
     }
     setEnabled(enabled) {
         this.enabled = !!enabled;
@@ -230,15 +254,24 @@ class GameAudio {
         this.syncWork(state);
         this.syncBackground(state);
         this.syncFishing(state);
+        const eventPosition=Number.isFinite(state?.pointer?.x) && Number.isFinite(state?.pointer?.y) ? [state.pointer.x,state.pointer.y] : this.lastPosition;
         // Layer 2 only: never stop, restart, pulse, or change gain of layer 1.
         for (const event of events) {
             if(event.kind==='item_destroyed') {
-                if (event.reward_sound) this.miningLoot({...event, sound:event.reward_sound, impact_sound:'destroy'});
-                else this.oneShot('destroy');
+                if (event.reward_sound) this.miningLoot({...event, sound:event.reward_sound, impact_sound:'destroy'},eventPosition);
+                else this.oneShot('destroy',eventPosition);
             }
-            if(event.kind==='mining_loot') this.miningLoot(event);
-            if(event.kind==='one_shot') this.oneShot(event.sound);
-            if(event.kind==='one_shot_group') this.oneShotGroup(event.sounds);
+            if(event.kind==='mining_loot') this.miningLoot(event,eventPosition);
+            if(event.kind==='one_shot') {
+                let position=eventPosition;
+                if(event.sound==='step') {
+                    const w=this.latestState?.width||60,h=this.latestState?.height||40;
+                    position=[event.direction==='left'?0:event.direction==='right'?w-1:(w-1)/2,(h-1)/2];
+                }
+                const spatial=event.sound!=='door' && !(event.sound==='coin' && ['shop_buy','shop_sell'].includes(state?.page));
+                this.oneShot(event.sound,position,spatial);
+            }
+            if(event.kind==='one_shot_group') this.oneShotGroup(event.sounds,eventPosition);
             if(event.kind==='correct' && event.count>0) this.correct(event.count, event.activity === 'cooking' || state?.page === 'cooking' || ['cut','cook'].includes(this.workName));
         }
     }
@@ -272,8 +305,10 @@ class GameAudio {
         this.bgmToken++; this.bgmName = null;
         if (this.bgm) { try { this.bgm.stop(); } catch {} this.bgm = null; }
     }
-    oneShot(name) { return this.oneShotGroup([name]); }
-    async oneShotGroup(names=[]) {
+    oneShot(name,position=this.lastPosition,spatial=true) { return this.oneShotGroup([name],position,spatial); }
+    async oneShotGroup(names=[],position=this.lastPosition,spatialEnabled=true) {
+        // Capture the action point before decoding; later pointer moves must not move this sound.
+        position=position ? [...position] : null;
         if (!this.enabled) return;
         names=[...new Set(names)].filter(n=>['sleep','door','coin','step','pickaxe','break','shine','destroy','splash'].includes(n));
         if (!names.length) return;
@@ -287,20 +322,21 @@ class GameAudio {
             if(!buffer)return Promise.resolve();
             const name=names[i], gain=this.context.createGain();
             gain.gain.value=this.settings.one_shot_gain[this.settings.one_shot_gain_links[name]||name]??0.8;
-            gain.connect(['pickaxe','break','destroy'].includes(name) ? this.taskInput : this.master);
+            const spatial=spatialEnabled && ['pickaxe','break','destroy','step','coin'].includes(name) ? this.createSpatialBus(position) : null;
+            gain.connect(spatial ? spatial.input : this.master);
             const source=this.context.createBufferSource();source.buffer=buffer;source.connect(gain);
             this.oneShotSources.add(source);
             return new Promise(resolve=>{
-                source.onended=()=>{this.oneShotSources.delete(source);source.disconnect();gain.disconnect?.();resolve();};
+                source.onended=()=>{this.oneShotSources.delete(source);source.disconnect();gain.disconnect?.();spatial?.disconnect();resolve();};
                 // Both buffers are decoded before scheduling the same start time.
                 source.start(startAt);
             });
         }));
     }
-    async miningLoot(event) {
+    async miningLoot(event,position=this.lastPosition) {
         if (!this.enabled) { this.onNarration(event.tts || ''); return; }
         const token = this.miningNarrationToken;
-        await this.oneShot(event.impact_sound === 'destroy' ? 'destroy' : 'break');
+        await this.oneShot(event.impact_sound === 'destroy' ? 'destroy' : 'break',position);
         if (token !== this.miningNarrationToken || !this.enabled) return;
         this.onNarration(event.tts || '');
         if (event.sound === 'shine') this.oneShot('shine');
@@ -326,17 +362,12 @@ class GameAudio {
         const target=this.latestState?.fishing?.target;
         if (!this.fishingGain || !target || !this.fishingPosition) return;
         const cfg=this.settings.fishing, [x,y]=this.fishingPosition;
-        const dx=target[0]-x, dy=target[1]-y;
-        const proximity=Math.max(0,1-Math.hypot(dx,dy)/Math.max(1,cfg.distance_scale));
-        const gain=(cfg.min_gain+(cfg.max_gain-cfg.min_gain)*proximity**2)*(this.ducked?cfg.tts_multiplier:1);
-        this.fishingGain.gain.setTargetAtTime(gain,this.context.currentTime,0.03);
-        // Upper pad = ahead; lower pad = behind. Pointer acts as the listener.
-        const px=dx/Math.max(1,cfg.position_scale), pz=dy/Math.max(1,cfg.position_scale);
-        const p=this.fishingPanner, t=this.context.currentTime;
-        if (p.positionX) {
-            p.positionX.setTargetAtTime(px,t,0.03);p.positionY.setTargetAtTime(0,t,0.03);p.positionZ.setTargetAtTime(pz,t,0.03);
-        } else p.setPosition(px,0,pz);
+        const sound=this.relativeSound(target,[x,y],cfg);
+        this.fishingGain.gain.setTargetAtTime(sound.gain*(this.ducked?cfg.tts_multiplier:1),this.context.currentTime,0.03);
+        // Fishing retains its moving listener and fixed fish target.
+        this.placeSound(this.fishingPanner,sound);
     }
+
     async startFishing() {
         this.fishingPending=true;
         const token=this.fishingToken;
