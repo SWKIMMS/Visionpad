@@ -5,7 +5,7 @@ import time
 
 def spectator_snapshot(engine, objects):
     now = time.monotonic()
-    fields = ('id', 'type', 'x', 'y', 'width', 'height', 'label', 'selected',
+    fields = ('grid_row', 'grid_column', 'grid_slot', 'id', 'type', 'x', 'y', 'width', 'height', 'label', 'selected',
               'resource_kind', 'recipe_id', 'seed_id', 'ingredient_id', 'choice',
               'item_kind', 'shop_kind', 'item_id', 'count', 'price', 'direction',
               'research_kind', 'required_count', 'display_quantities', 'quest_available')

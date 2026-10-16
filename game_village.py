@@ -53,8 +53,16 @@ class VillageMixin:
         self.rowan_dialogue=text
         self.current_page='rowan_submit' if page=='rowan_submit' else 'town'
         self.rowan_submit_open = page=='rowan_submit'
-        self.clear_hover(); self.render()
-        return self.response(tts=f'Rowan. {text}',sound_events=events)
+        self.clear_hover()
+        # A conversation keeps the village open. Mark Rowan as already hovered
+        # so the next tracking sample cannot replace the quest narration.
+        # Leaving the object clears this normally in pointer_move().
+        if self.current_page == 'town':
+            self.hover_object_id = 'town_rowan'
+        self.render()
+        result = self.response(tts=f'Rowan. {text}',sound_events=events)
+        result['speech_channel'] = 'quest'
+        return result
 
     def talk_rowan(self):
         if self.current_location != 'town': return self.response(tts='Rowan is in the village.')
@@ -101,10 +109,7 @@ class VillageMixin:
         return self.show_rowan(f"Thank you! This is just what I needed. Here's {self.config['rowan']['vegetable_reward_gold']} gold.",events=[{'kind':'one_shot','sound':'coin'}])
 
     def draw_rowan(self, obj):
-        self.draw_item_frame(obj, 'food' if obj.get('quest_available') else 'material')
-        self.draw_icon_pattern(obj['x'],obj['y'],['00100','01110','00100','11111','00100','01010','01010'])
+        self.icons.draw(obj)
 
     def draw_calendar(self, obj):
-        self.dotpad.draw_box(obj['x'],obj['y'],obj.get('width',12),obj.get('height',9))
-        self.draw_icon_pattern(obj['x'],obj['y'],['11111','00000','10101','00000','10101'])
-        if obj.get('selected'):self.dotpad.set_dot(obj['x'],obj['y'])
+        self.icons.draw(obj)

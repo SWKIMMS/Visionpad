@@ -72,8 +72,18 @@ let scoreTimer = null;
 // Keep the latest message until the browser can actually start speech.
 let pendingSpeech = null;
 let activeUtterance = null;
-function announce(text, priority="action") {
-    if (text) speak(text, priority !== "hover");
+// Logical channels: quest narration finishes before other speech uses the synth.
+let questSpeech = null;
+let questQueue = [];
+let deferredActionSpeech = null;
+function finishQuestSpeech() {
+    questSpeech = null;
+    const next = questQueue.shift() || deferredActionSpeech;
+    if (!questQueue.length && next === deferredActionSpeech) deferredActionSpeech = null;
+    if (next && speechEnabled) speak(next.text, next.important, next.channel);
+}
+function announce(text, priority="action", channel="general") {
+    if (text) speak(text, priority !== "hover", channel);
 }
 function connection(ok, message) {
     document.getElementById("connection").classList.toggle("online", ok);
@@ -130,6 +140,7 @@ function playPendingSpeech() {
         actionSpeaking = false;
         gameAudio.setDucked(false);
         ttsText.textContent = "Ready";
+        if (message.channel === "quest") finishQuestSpeech();
     };
     utterance.onerror = event => {
         if (sequence !== speechSequence) return;
@@ -153,13 +164,22 @@ function unlockSpeech() {
         if (pendingSpeech && !activeUtterance) playPendingSpeech();
     }
 }
-function speak(text, important=true) {
+function speak(text, important=true, channel="general") {
     const normalized = String(text || "").trim();
     if (!normalized) return;
+    const message = {text:normalized, important, channel};
+    if (questSpeech && speechEnabled) {
+        if (channel === 'quest') {
+            if (normalized !== questSpeech.text && !questQueue.some(m=>m.text===normalized)) questQueue.push(message);
+        } else if (important) deferredActionSpeech = message;
+        // Hover is discarded instead of replaying stale object labels afterward.
+        return;
+    }
+    if (channel === 'quest' && speechEnabled) questSpeech = message;
     clearTimeout(hoverTimer);
     lastAnnouncement = normalized;
     document.getElementById("caption").textContent = normalized;
-    pendingSpeech = speechEnabled ? {text:normalized, important} : null;
+    pendingSpeech = speechEnabled ? message : null;
     playPendingSpeech();
 }
 if ("speechSynthesis" in window) {
@@ -449,7 +469,7 @@ async function handleResponse(response) {
     if (data.sfx && !(data.sound_events || []).some(e=>e.sound === "step") && !recordedEvents.includes(data.sfx) && !(data.sound_events?.length && data.sfx === "tool_pickup")) playSfx(data.sfx);
 
     if (data.tts) {
-        announce(data.tts, data.priority || "action");
+        announce(data.tts, data.priority || "action", data.speech_channel || "general");
     }
 }
 
@@ -649,7 +669,7 @@ document.getElementById("mute-button").addEventListener("click",event=>{
     speechEnabled=!speechEnabled;
     event.currentTarget.textContent=speechEnabled?"Speech on":"Speech off";
     event.currentTarget.setAttribute("aria-pressed",String(!speechEnabled));
-    if (!speechEnabled && "speechSynthesis" in window) {speechSequence++;pendingSpeech=null;activeUtterance=null;speechSynthesis.cancel();actionSpeaking=false;gameAudio.setDucked(false);ttsText.textContent="Off";}
+    if (!speechEnabled && "speechSynthesis" in window) {speechSequence++;pendingSpeech=null;activeUtterance=null;questSpeech=null;questQueue=[];deferredActionSpeech=null;speechSynthesis.cancel();actionSpeaking=false;gameAudio.setDucked(false);ttsText.textContent="Off";}
 });
 document.getElementById("speech-rate").addEventListener("input",event=>{document.getElementById("rate-label").textContent=event.target.value+"×"});
 for (const [id, command] of [["nav-prev", "left"], ["nav-next", "right"]]) {

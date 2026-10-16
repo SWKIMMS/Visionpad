@@ -514,13 +514,12 @@ function menus() {
           : "Player selection";
   const grid = q(".dv-cards");
   grid.replaceChildren();
-  grid.style.gridTemplateColumns = state.rowan_submission?'repeat(3,minmax(0,1fr))':['research','recipe_select','ingredient_select'].includes(state.page)?'repeat(3,minmax(0,1fr))'
-    :state.page==='plot_detail'?'repeat(3,minmax(0,1fr))'
-    :['shop_choice','rowan_submit'].includes(state.page)?'repeat(3,minmax(0,1fr))':'repeat(4,minmax(0,1fr))';
+  const usesSlots=cards.some(o=>Number.isInteger(o.grid_slot));
+  grid.style.gridTemplateColumns='repeat(4,minmax(0,1fr))';
   // Use actual tactile row/column order, including sparse final rows.
   const xs=[...new Set(cards.map(o=>o.x).filter(Number.isFinite))].sort((a,b)=>a-b);
   const ys=[...new Set(cards.map(o=>o.y).filter(Number.isFinite))].sort((a,b)=>a-b);
-  grid.style.gridTemplateRows=['inventory','shop_buy','shop_sell','load_game'].includes(state.page)?'repeat(3,minmax(0,1fr))':'';
+  grid.style.gridTemplateRows=usesSlots?'repeat(3,minmax(0,1fr))':'';
   for (const o of cards) {
     const card = document.createElement("article");
     card.className =
@@ -528,7 +527,9 @@ function menus() {
       (focused(o.id) ? " is-focused" : "") +
       (o.selected ? " is-selected" : "");
     card.dataset.objectId = o.id;
-    if(['research','inventory','shop_buy','shop_sell','plot_detail'].includes(state.page)&&xs.length&&ys.length){
+    if(Number.isInteger(o.grid_slot)){
+      card.style.gridColumn=String(o.grid_column+1);card.style.gridRow=String(o.grid_row+1);
+    } else if(['research','inventory','shop_buy','shop_sell','plot_detail'].includes(state.page)&&xs.length&&ys.length){
       card.style.gridColumn=String(xs.indexOf(o.x)+1);card.style.gridRow=String(ys.indexOf(o.y)+1);
     }
     card.dataset.category=itemFrame(o);

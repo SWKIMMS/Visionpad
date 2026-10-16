@@ -8,6 +8,7 @@ from dotpad import DotPad
 from pathlib import Path
 from game_saves import SaveMixin
 from game_ui import KeypadUI
+from game_icons import IconGrid, IconLayout, IconRenderer
 from game_fishing import FishingMixin
 from game_seafood import SeafoodMixin
 from game_village import VillageMixin
@@ -48,6 +49,8 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         )
 
         self.save_dir = Path(save_dir) if save_dir is not None else Path(__file__).resolve().parent / "saves"
+        self.icon_layout = IconLayout(IconGrid())
+        self.icons = IconRenderer(self)
         self._static_fields = set(vars(self))
         self.reset()
 
@@ -97,89 +100,18 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return config
 
     def compact_objects(self, objects):
-        """Pack menu objects in reading order, using the same geometry for touch and output."""
-        page = self.current_page
-        if page in ("load_game", "shop_calendar"):
-            return objects
-        if page == "inventory":
-            objects = [dict(o) for o in objects]
-            items = [o for o in objects if o.get("type") == "resource"]
-            for i,o in enumerate(items):
-                o.update(x=8+14*(i%4), y=5+10*(i//4), width=12, height=8, hit_width=12, hit_height=8)
-            for o in objects:
-                if o.get("type") == "arrow": o.update(y=34)
-            return objects
-        if page in ("home", "town"):
-            objects = [dict(o) for o in objects]
-            facilities = [o for o in objects if o.get("type") in ("bed", "chest", "stove", "shop_npc", "rowan")]
-            order = {"bed": 0, "chest": 1, "stove": 2, "shop_npc": 3, "rowan": 4}
-            facilities.sort(key=lambda o: order[o["type"]])
-            for index, o in enumerate(facilities):
-                o.update(x=8 + index*16, y=7, width=12, height=10, hit_width=12, hit_height=10)
-            return objects
-        if page in ("shop_buy", "shop_sell"):
-            objects = [dict(o) for o in objects]
-            for o in objects:
-                if o.get("type") == "shop_item":
-                    o.update(width=12, height=8, hit_width=12, hit_height=8)
-            for o in objects:
-                if o.get("id") == f"shop_{'buy' if page == 'shop_buy' else 'sell'}_back":
-                    o.update(x=55, y=35, size=3, hit_width=7, hit_height=7)
-                elif o.get("action", "").startswith("shop_page:"):
-                    o.update(x=6 if o["action"].endswith(":-1") else 16, y=35, hit_width=7, hit_height=7)
-            return objects
-        if page in ("minimap", "cooking", "mine", "fishing", "water_minigame", "fertilizer_minigame", "harvest", "inventory", "shop_buy", "shop_sell"):
-            return objects
-        objects = [dict(o) for o in objects]
-        arrows = [o for o in objects if o.get("type") == "arrow"]
-        items = [o for o in objects if o.get("type") != "arrow"]
-        if page == "plot_detail":
-            buttons = [o for o in items if o["type"] == "care_button"]
-            for i, o in enumerate(buttons):
-                o.update(x=6 + i * 12, y=6, width=9, height=9, hit_width=9, hit_height=9)
-            for o in items:
-                if o["type"] == "growth_gauge":
-                    o.update(x=30, y=15, hit_width=42, hit_height=5)
-                elif o["type"] == "plot_detail_field":
-                    o.update(x=30, y=29, hit_width=44, hit_height=18)
-            for i, o in enumerate(arrows):
-                o.update(x=6 + len(buttons)*12 + i*9, y=6, hit_width=7, hit_height=7)
-            return buttons + arrows + [o for o in items if o not in buttons]
-        if page == "research":
-            for i, o in enumerate(items):
-                o.update(x=8+15*(i%3), y=6+12*(i//3), width=12, height=8,
-                         hit_width=12, hit_height=8)
-            return items + arrows
-        if page == "recipe_select":
-            for o in items:
-                if o.get("type") == "recipe": o.update(width=12, height=8, hit_width=12, hit_height=8)
-        if page == "ingredient_select":
-            items.sort(key=lambda o: o["type"] != "cooking_start")
-        # Restore original frame dimensions. Wrap complete items instead of
-        # shrinking every box to force a single row. Reserve two blank edge dots.
-        gap, margin = 3, 2
-        right = self.dotpad.width-margin
-        if page == "shop_choice":
-            for o in items: o.update(width=12,height=12)
-        x, top, row_height, bottom = margin, margin, 0, margin
-        for o in items:
-            w = min(o.get("width",10), right-margin)
-            h = o.get("height",8)
-            if x+w > right:
-                x, top, row_height = margin, top+row_height+gap, 0
-            o.update(x=x+w//2, y=top+h//2, width=w, hit_width=w, hit_height=h)
-            occupied_height=h+(3 if o.get("type") == "plot" else 0)
-            row_height=max(row_height,occupied_height)
-            bottom=max(bottom,top+occupied_height)
-            x += w+gap
-        for i, o in enumerate(arrows):
-            # Nine-dot tall triangles also keep the outermost rows blank.
-            o.update(x=5+i*10, y=min(self.dotpad.height-6, bottom+5), hit_width=7, hit_height=9)
-        if page == "shop_choice":
-            back = self.back_arrow("shop_choice_back", "Back to village", "return_scene")
-            back.update(x=5, y=bottom+5, size=3, hit_width=5, hit_height=9)
-            arrows.append(back)
-        return items+arrows
+        """Use shared slots for icons; preserve spatial minigame/map geometry."""
+        if self.current_page == "shop_choice":
+            objects = list(objects) + [self.back_arrow("shop_choice_back", "Back to village", "return_scene")]
+        objects = self.icon_layout.arrange(self.current_page, objects,
+                                           self.dotpad.width, self.dotpad.height)
+        if self.current_page == 'plot_detail':
+            for obj in objects:
+                if obj['type'] == 'growth_gauge':
+                    obj.update(x=30,y=15,hit_width=42,hit_height=5)
+                elif obj['type'] == 'plot_detail_field':
+                    obj.update(x=30,y=29,hit_width=44,hit_height=18)
+        return objects
 
     def reset(self):
         self.reset_village()
@@ -1054,7 +986,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
 
     def get_recipe_select_objects(self):
         craftable = [(rid, cfg) for rid, cfg in self.config.get("recipes", {}).items() if not cfg.get("hidden_recipe") and self.can_craft_recipe(rid)]
-        positions = [(8+15*(i%3),6+12*(i//3)) for i in range(6)]
+        positions = [(0, 0)] * (self.icon_layout.grid.rows * self.icon_layout.grid.columns)
         objects = []
         for index, (recipe_id, recipe) in enumerate(craftable[:len(positions)]):
             x, y = positions[index]
@@ -1169,6 +1101,8 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             self.timepad.clear()
             return
         for obj in self.get_objects():
+            if self.icons.draw(obj):
+                continue
             obj_type = obj.get("type")
             if obj_type == "rowan":
                 self.draw_rowan(obj)
@@ -1252,23 +1186,16 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             self.dotpad.set_dot(round(x)-w//2+col, round(y)-h//2+row)
 
     def draw_bed(self, obj):
-        self.draw_facility(obj)
+        self.icons.draw(obj)
 
     def draw_chest(self, obj):
-        self.draw_facility(obj)
+        self.icons.draw(obj)
 
     def draw_stove(self, obj):
-        self.draw_facility(obj)
+        self.icons.draw(obj)
 
     def draw_plot(self, obj):
-        left, top, width, height = self.plot_bounds(obj)
-        # Draw the frame explicitly so DotPad.draw_box rounding cannot offset the fill.
-        for y in range(top, top+height):
-            for x in range(left, left+width):
-                if x in (left, left+width-1) or y in (top, top+height-1):
-                    self.dotpad.set_dot(x, y)
-        state = self.farm_plots.get(obj["id"], self.new_plot_state())
-        self.draw_plot_progress(obj, state)
+        self.icons.draw(obj)
 
     @staticmethod
     def plot_bounds(obj):
@@ -1285,22 +1212,13 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             for x in range(left+1, left+width-1): self.dotpad.set_dot(x, y)
 
     def draw_watering_can(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, 6, 5)
-        self.dotpad.draw_line(x + 3, y - 1, x + 7, y - 3)
-        self.dotpad.draw_line(x + 7, y - 3, x + 8, y - 2)
-        self.dotpad.draw_line(x - 3, y - 1, x - 5, y - 1)
+        self.icons.draw(obj)
 
     def draw_fertilizer(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, 6, 7)
-        self.dotpad.draw_line(x - 2, y - 1, x + 2, y - 1)
-        self.dotpad.set_dot(x, y + 1)
-        self.dotpad.set_dot(x - 1, y + 2)
-        self.dotpad.set_dot(x + 1, y + 2)
+        self.icons.draw(obj)
 
     def draw_seed(self, obj):
-        self.draw_catalog_item(obj, "seed")
+        self.icons.draw(obj)
 
     def draw_crop_symbol(self, x, y, seed_id):
         # Distinct compact silhouettes: round fruit, tapered root, paired tubers.
@@ -1316,7 +1234,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
                     self.dotpad.set_dot(x + i - 2, y + j - 2)
 
     def draw_resource(self, obj):
-        self.draw_catalog_item(obj, obj.get("resource_kind"), obj.get("recipe_id"))
+        self.icons.draw(obj)
 
     def draw_filled_square(self, x, y, size=4):
         left, top = round(x)-size//2, round(y)-size//2
@@ -1342,11 +1260,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         self.draw_icon_pattern(x, y, self.get_recipe_config(recipe_id).get("icon", []))
 
     def draw_research(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, obj.get("width", 20), obj.get("height", 10))
-        kind = obj.get("research_kind")
-        cfg = self.config.get("research", {}).get("field_expansion" if kind == "field_expand" else kind, {})
-        self.draw_icon_pattern(x, y, cfg.get("icon", []))
+        self.icons.draw(obj)
 
     def draw_plot_detail_field(self, obj):
         x, y = int(obj["x"]), int(obj["y"])
@@ -1390,20 +1304,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
                 self.dotpad.set_dot(x, y)
 
     def draw_care_button(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, obj.get("width", 18), obj.get("height", 7))
-        kind = obj.get("care_kind")
-        if kind == "water":
-            self.draw_icon_pattern(x, y, ["00100", "01110", "11111", "11111", "01110"])
-        elif kind == "fertilizer":
-            self.draw_category(x, y, "fertilizer")
-        elif kind == "harvest":
-            self.draw_harvest_crop({"x": x, "y": y})
-        elif kind == "plant":
-            self.dotpad.set_dot(x, y)
-            self.dotpad.set_dot(x - 1, y + 1)
-            self.dotpad.set_dot(x + 1, y + 1)
-            self.dotpad.set_dot(x, y - 1)
+        self.icons.draw(obj)
 
     def draw_care_target(self, obj):
         x, y = int(obj["x"]), int(obj["y"])
@@ -1425,22 +1326,13 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             self.dotpad.set_dot(x + dx, y + dy)
 
     def draw_recipe(self, obj):
-        self.draw_catalog_item(obj, "food", obj.get("recipe_id"))
+        self.icons.draw(obj)
 
     def draw_ingredient(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, obj.get("width", 12), obj.get("height", 9))
-        if not obj.get("selected"):
-            self.draw_category(x, y, obj.get("item_kind", "crop"))
-        if obj.get("selected"):
-            self.dotpad.draw_line(x - 3, y + 1, x - 1, y + 3)
-            self.dotpad.draw_line(x - 1, y + 3, x + 3, y - 2)
+        self.icons.draw(obj)
 
     def draw_cooking_start(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, obj.get("width", 18), obj.get("height", 7))
-        self.dotpad.draw_line(x - 3, y, x + 3, y)
-        self.dotpad.draw_line(x, y - 2, x, y + 2)
+        self.icons.draw(obj)
 
     def cooking_resume_point(self):
         if not self.cooking_resume_marker or not self.cooking_path_samples:
@@ -1503,18 +1395,13 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             self.draw_filled_square(*resume)
 
     def draw_shop_npc(self, obj):
-        self.draw_facility(obj)
+        self.icons.draw(obj)
 
     def draw_shop_choice(self, obj):
-        x, y = int(obj["x"]), int(obj["y"])
-        self.dotpad.draw_box(x, y, obj.get("width", 28), obj.get("height", 34))
-        glyph = (["01111","10000","10000","01110","00001","00001","11110"]
-                 if obj.get("choice") == "sell" else
-                 ["11110","10001","10001","11110","10001","10001","11110"])
-        self.draw_icon_pattern(x,y,glyph)
+        self.icons.draw(obj)
 
     def draw_shop_item(self, obj):
-        self.draw_catalog_item(obj, obj.get("shop_kind"), obj.get("item_id"))
+        self.icons.draw(obj)
 
     def point_to_segment_distance(self, px, py, x1, y1, x2, y2):
         dx, dy = x2 - x1, y2 - y1
