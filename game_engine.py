@@ -776,7 +776,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             "width": int(field.get("width", 46)), "height": int(field.get("height", 30)),
             "hit_width": int(field.get("width", 46)), "hit_height": int(field.get("height", 30)),
             "label": f"{mode_label} plot",
-            "tts": f" {seed_label} plot. Hold and drag to apply {mode_label}.",
+            "tts": f" {seed_label} plot. Move to apply {mode_label}.",
             "action": ""
         }]
         for target in self.care_targets:
@@ -788,7 +788,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
                 "x": target["x"], "y": target["y"],
                 "width": 5, "height": 5, "hit_width": 8, "hit_height": 8,
                 "label": f"{mode_label} target",
-                "tts": f"{mode_label} target. Hold and drag.",
+                "tts": f"{mode_label} target. Move.",
                 "action": ""
             })
         return objects
@@ -1039,7 +1039,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             "width": int(field.get("width", 46)), "height": int(field.get("height", 30)),
             "hit_width": int(field.get("width", 46)), "hit_height": int(field.get("height", 30)),
             "label": " Plot",
-            "tts": f"Hold and drag over crops.",
+            "tts": f"Move over crops.",
             "action": ""
         }]
         for target in self.harvest_targets:
@@ -1048,7 +1048,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             objects.append({
                 "id": target["id"], "type": "harvest_crop", "x": target["x"], "y": target["y"],
                 "width": 5, "height": 5, "hit_width": 7, "hit_height": 7,
-                "label": f"Harvest {seed_label}", "tts": f"Harvest {seed_label}. Hold and drag.", "action": ""
+                "label": f"Harvest {seed_label}", "tts": f"Harvest {seed_label}. Move.", "action": ""
             })
         return objects
 
@@ -1578,7 +1578,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             mode = obj.get("care_kind")
             state = self.farm_plots.get(self.detail_plot_id, {})
             if mode == "water":
-                return "Watered" if state.get("watered") else f"Water. Hold and drag."
+                return "Watered" if state.get("watered") else f"Water. Move."
             if mode == "fertilizer":
                 count = self.resources.get("fertilizer", 0)
                 if state.get("fertilized"):
@@ -1603,7 +1603,47 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         }
         return mapping.get(obj.get("type"), "hover_object")
 
+    def move_minigame(self, x, y):
+        """Follow the pointer independently of the physical press state."""
+        if self.paused or self.day_ended or self.sleep_until is not None or self.pending_visual_completion:
+            self.last_pointer=(x,y)
+            return self.response()
+        px,py=self.last_pointer
+        self.last_pointer=(x,y)
+        if px is None or py is None: px,py=x,y
+        if self.current_page=='cooking':
+            if not self.cooking_dragging:
+                if not self.cooking_path_samples:return self.response()
+                index=min(self.cooking_progress_index,len(self.cooking_path_samples)-1)
+                sx,sy=self.cooking_path_samples[index]
+                tolerance=float(self.get_cooking_gesture().get('tolerance',4.5))*1.35
+                if math.hypot(x-sx,y-sy)>tolerance:return self.response()
+                return self.start_cooking_trace(x,y)
+            return self.advance_cooking_trace(px,py,x,y)
+        care=self.current_page in ('water_minigame','fertilizer_minigame')
+        if care:
+            self.care_dragging=True
+            before=len(self.care_collected_ids)
+            self.collect_care_segment(px,py,x,y)
+            gained=len(self.care_collected_ids)-before
+            complete=bool(self.care_targets) and len(self.care_collected_ids)/len(self.care_targets)>=float(self.config.get('care_minigame',{}).get('success_ratio',0.65))
+        else:
+            self.harvest_dragging=True
+            before=len(self.harvest_collected_ids)
+            self.collect_harvest_segment(px,py,x,y)
+            gained=len(self.harvest_collected_ids)-before
+            complete=bool(self.harvest_targets) and len(self.harvest_collected_ids)==len(self.harvest_targets)
+        if complete:
+            result=self.finish_care_minigame() if care else self.finish_harvest_minigame()
+        else:
+            if gained:self.render()
+            result=self.response(sfx=('care_spray' if care else 'harvest_collect') if gained else None)
+        if gained:result.setdefault('sound_events',[]).append({'kind':'correct','count':gained})
+        return result
+
     def pointer_move(self, x, y):
+        if self.current_page in ('water_minigame','fertilizer_minigame','harvest','cooking'):
+            return self.move_minigame(x,y)
         if self.sleep_until is not None:
             return self.response()
         self.last_pointer = (x, y)
@@ -1624,6 +1664,8 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return self.response()
 
     def pointer_down(self, x, y):
+        if self.current_page in ('water_minigame','fertilizer_minigame','harvest','cooking'):
+            return self.move_minigame(x,y)
         if self.sleep_until is not None:
             return self.response()
         if self.pending_visual_completion:
@@ -1646,7 +1688,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
                 self.render()
                 return self.response(sfx="care_spray", sound_events=[{"kind": "correct", "count": len(self.care_collected_ids) - before}])
             mode_label = "Water " if self.care_mode == "water" else " fertilizer "
-            return self.response(tts=f"{mode_label}. Hold and drag over targets.", sfx="tool_pickup")
+            return self.response(tts=f"{mode_label}. Move over targets.", sfx="tool_pickup")
 
         if self.current_page == "harvest":
             self.harvest_dragging = True
@@ -1655,7 +1697,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             if collected:
                 self.render()
                 return self.response(sfx="harvest_collect", sound_events=[{"kind": "correct", "count": len(self.harvest_collected_ids) - before}])
-            return self.response(tts="Harvest. Hold and drag over crops.", sfx="tool_pickup")
+            return self.response(tts="Harvest. Move over crops.", sfx="tool_pickup")
 
         if self.current_page == "cooking":
             return self.start_cooking_trace(x, y)
@@ -1682,6 +1724,8 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return self.perform_action(action, obj)
 
     def pointer_drag(self, x, y):
+        if self.current_page in ('water_minigame','fertilizer_minigame','harvest','cooking'):
+            return self.move_minigame(x,y)
         if self.sleep_until is not None:
             return self.response()
         if self.pending_visual_completion:
@@ -1733,6 +1777,9 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return self.response()
 
     def pointer_up(self, x, y):
+        if self.current_page in ('water_minigame','fertilizer_minigame','harvest','cooking'):
+            self.pointer_pressed=False
+            return self.response()
         if self.sleep_until is not None:
             return self.response()
         if self.paused:
@@ -1978,6 +2025,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         return self.response(tts=text, sfx="open_page")
 
     def start_care_minigame(self, plot_id, mode):
+        self.last_pointer = (None, None)
         state = self.farm_plots.get(plot_id)
         if state is None or state.get("seed_id") is None:
             return self.response(tts="Plant seeds first.", sfx="error")
@@ -2011,7 +2059,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         self.render()
         mode_label = "Water" if mode == "water" else "Fertilize"
         return self.response(
-            tts=f"{mode_label}. Hold and drag over targets.",
+            tts=f"{mode_label}. Move over targets.",
             sfx="care_start"
         )
 
@@ -2255,6 +2303,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         self.harvest_targets = [{"id": f"harvest_target_{i}", "x": x, "y": y} for i, (x, y) in enumerate(selected)]
         self.harvest_collected_ids.clear()
         self.harvest_dragging = False
+        self.last_pointer = (None, None)
         self.current_page = "harvest"
         self.clear_hover()
         self.render()
@@ -2427,6 +2476,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             return self.response(sfx="cooking_wait")
         if self.cooking_stage_index + 1 >= len(self.get_cooking_steps()):
             return self.finish_cooking_success()
+        self.last_pointer = (None, None)
         self.cooking_stage_index += 1
         self.cooking_last_progress_at = None
         self.cooking_resume_marker = False
@@ -2448,6 +2498,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             return self.response(tts="Select all ingredients first.", sfx="error")
         if not self.can_craft_recipe(self.selected_recipe_id):
             return self.response(tts="Not enough ingredients.", sfx="error")
+        self.last_pointer = (None, None)
         self.current_page = "cooking"
         self.cooking_dragging = False
         self.cooking_progress_index = 0
@@ -2483,7 +2534,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
         sx, sy = self.cooking_path_samples[resume_index]
         if math.hypot(x - sx, y - sy) > tolerance * 1.35:
             self.cooking_dragging = False
-            return self.response(tts="Press the filled square to continue.", sfx="error")
+            return self.response(tts="Move to the filled square to continue.", sfx="error")
         self.cooking_dragging = True
         if self.cooking_progress_index == 0:
             self.cooking_visible_until[0] = time.monotonic() + self.disappear_delay_seconds
@@ -2672,7 +2723,7 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
     def handle_command(self, command):
         command = str(command).lower().strip()
         command = {"f1":"minimap", "f2":"resources", "f3":"load", "f3_long":"save",
-                   "f4":"pause", "arrowleft":"left", "arrowright":"right"}.get(command, command)
+                   "f4":"click", "arrowleft":"left", "arrowright":"right"}.get(command, command)
         if command == "save":
             return self.save_game()
         if command == "load": return self.toggle_menu("load_game")
@@ -2683,11 +2734,21 @@ class GameEngine(VillageMixin, SeafoodMixin, FishingMixin, KeypadUI, SaveMixin):
             self.pointer_pressed = self.care_dragging = self.harvest_dragging = self.cooking_dragging = False
             self.drag_tool = None
             return self.response()
-        if command == "pause":
-            self.paused = not self.paused
-            self.pointer_pressed = self.care_dragging = self.harvest_dragging = self.cooking_dragging = False
-            self.drag_tool = None
-            return self.response(tts="Paused." if self.paused else "Resumed.")
+        # TEMP_EVALUATION_CLICK: F4 replaces pause during the user evaluation.
+        # Original pause implementation (restore together with game-keys.js):
+        # if command == "pause":
+        #     self.paused = not self.paused
+        #     self.pointer_pressed = self.care_dragging = self.harvest_dragging = self.cooking_dragging = False
+        #     self.drag_tool = None
+        #     return self.response(tts="Paused." if self.paused else "Resumed.")
+        if command in ("click", "pause"):
+            x, y = self.last_pointer
+            if x is None or y is None:
+                return self.response(tts="Move to an item first.")
+            result = self.pointer_down(x, y)
+            self.pointer_pressed = False
+            result["state"] = self.get_state()
+            return result
         return self.response()
 
     def resource_summary_text(self):

@@ -10,6 +10,7 @@ class GameAudio {
         // Fallbacks support old configs; game_config.json overrides these via state.
         this.settings = {
             default_volume:0.7,
+            task_spatial:{enabled:true,mix:0.25,horizontal_range:0.8,depth_range:0.6,smoothing_seconds:0.05},
             fishing:{max_gain:0.85,min_gain:0.12,distance_scale:40,position_scale:10,tts_multiplier:1,bgm_multiplier:0.2},
             bgm_gain:{basic:0.22,minigame:0.10,shop:0.40},
             one_shot_gain:{splash:0.85,sleep:0.8,door:0.7,coin:0.65,pickaxe:0.8,break:0.8,shine:0.8,destroy:0.8},
@@ -37,12 +38,14 @@ class GameAudio {
         this.settings = {
             ...this.settings, ...settings,
             fishing:{...this.settings.fishing,...settings.fishing},
+            task_spatial:{...this.settings.task_spatial,...settings.task_spatial},
             bgm_gain:{...this.settings.bgm_gain,...settings.bgm_gain},
             one_shot_gain:{...this.settings.one_shot_gain,...settings.one_shot_gain},
             one_shot_gain_links:{...this.settings.one_shot_gain_links,...settings.one_shot_gain_links},
             work_gain:{...this.settings.work_gain,...settings.work_gain},
             work_gain_during_tts:{...this.settings.work_gain_during_tts,...settings.work_gain_during_tts}
         };
+        this.updateTaskPosition();
         this.setVolume(this.settings.default_volume);
         this.setDucked(this.ducked);
     }
@@ -60,13 +63,51 @@ class GameAudio {
                 this.context = this.contextFactory();
                 this.master = this.context.createGain(); this.master.connect(this.context.destination);
                 this.bgmGain = this.context.createGain(); this.bgmGain.connect(this.master);
-                this.workGain = this.context.createGain(); this.workGain.connect(this.master);
+                this.createTaskSpatialBus();
+                this.workGain = this.context.createGain(); this.workGain.connect(this.taskInput);
                 this.rewardGain = this.context.createGain(); this.rewardGain.gain.value = this.settings.reward_gain; this.rewardGain.connect(this.master);
                 this.setVolume(this.volume); this.setDucked(this.ducked);
             }
             if (this.context.state === 'suspended') this.context.resume().catch(() => this.onStatus('Press the sound button to enable audio'));
             if (this.latestState) {this.syncBackground(this.latestState);this.syncFishing(this.latestState);}
         } catch {this.onStatus('Audio unavailable · Follow the captions');}
+    }
+    createTaskSpatialBus() {
+        // Keep most of the signal centered; only a small part supplies direction.
+        // This bus is independent of fishing, rewards, narration and background music.
+        this.taskInput = this.context.createGain();
+        this.taskDry = this.context.createGain();
+        this.taskInput.connect(this.taskDry); this.taskDry.connect(this.master);
+        if (typeof this.context.createPanner === 'function') {
+            this.taskPanner = this.context.createPanner();
+            this.taskPanner.panningModel = 'HRTF';
+            this.taskPanner.rolloffFactor = 0; // No distance-based volume loss.
+            this.taskWet = this.context.createGain();
+            this.taskInput.connect(this.taskPanner);
+            this.taskPanner.connect(this.taskWet); this.taskWet.connect(this.master);
+        }
+        this.updateTaskPosition();
+    }
+    updateTaskPosition() {
+        if (!this.taskDry) return;
+        const cfg = this.settings.task_spatial;
+        const mix = cfg.enabled && this.taskPanner ? Math.max(0, Math.min(1, Number(cfg.mix)||0)) : 0;
+        const t = this.context.currentTime, smooth = Math.max(0.01, Number(cfg.smoothing_seconds)||0.05);
+        this.taskDry.gain.setTargetAtTime(1-mix,t,smooth);
+        if (this.taskWet) this.taskWet.gain.setTargetAtTime(mix,t,smooth);
+        if (!this.taskPanner) return;
+        const w = Math.max(2, this.latestState?.width || 60), h = Math.max(2, this.latestState?.height || 40);
+        const [x,y] = this.lastPosition || [(w-1)/2,(h-1)/2];
+        const nx = Math.max(-1,Math.min(1,2*x/(w-1)-1));
+        const ny = Math.max(-1,Math.min(1,2*y/(h-1)-1));
+        // Fixed listener at screen center: left/right and upper/lower depth.
+        const px = nx * cfg.horizontal_range, pz = ny * cfg.depth_range;
+        const p = this.taskPanner;
+        if (p.positionX) {
+            p.positionX.setTargetAtTime(px,t,smooth);
+            p.positionY.setTargetAtTime(0,t,smooth);
+            p.positionZ.setTargetAtTime(pz,t,smooth);
+        } else p.setPosition(px,0,pz);
     }
     load(name) {
         if (!this.context || !this.urls[name]) return Promise.resolve(null);
@@ -94,6 +135,7 @@ class GameAudio {
     inputDown(state, x, y) {
         this.lastPosition = [x,y];
         this.held = true; this.lastMotion = this.now(); this.unlock();
+        this.updateTaskPosition();
         if (state?.paused || state?.day_ended || state?.sleeping) return;
         if (state?.page === 'water_minigame') {this.clickSound('water');this.startWork('water');}
         else if (state?.page === 'fertilizer_minigame') {this.clickSound('soil');this.startWork('soil');}
@@ -113,10 +155,11 @@ class GameAudio {
         source.onended = () => {this.clickSources.delete(source);source.disconnect();};
         source.start(0, 0, Math.min(this.settings.click_duration_ms / 1000, buffer.duration));
     }
-    inputUp() {this.held = false; this.stopWork();}
+    inputUp() {this.held = false; if(!this.motionActive)this.stopWork();}
     move(x,y) {
-        if (!this.lastPosition || Math.hypot(x-this.lastPosition[0],y-this.lastPosition[1])>0.05) this.pulse();
+        if (!this.lastPosition || Math.hypot(x-this.lastPosition[0],y-this.lastPosition[1])>0.05) {this.motionActive=true;this.pulse();this.syncWork(this.latestState);}
         this.lastPosition=[x,y];
+        this.updateTaskPosition();
         this.fishingPosition=[x,y];
         this.updateFishingPosition();
     }
@@ -125,20 +168,21 @@ class GameAudio {
         if (this.workGain) this.setDucked(this.ducked);
     }
     async startWork(name) {
-        if (!this.enabled || !this.held || !['water','soil','cut','cook','crop'].includes(name)) return;
+        if (!this.enabled || !(this.held || this.motionActive) || !['water','soil','cut','cook','crop'].includes(name)) return;
         if (this.workName === name) return;
         this.stopWork();this.workName=name;
         const token=this.workToken;
         const buffer=await this.load(name);
-        if (!buffer || token!==this.workToken || !this.held || !this.enabled) return;
+        if (!buffer || token!==this.workToken || !(this.held || this.motionActive) || !this.enabled) return;
         const source=this.context.createBufferSource();source.buffer=buffer;source.loop=true;
         source.connect(this.workGain);this.work=source;this.setDucked(this.ducked);source.start();
         source.onended=()=>source.disconnect();
         this.onStatus(({water:'Watering',soil:'Fertilizing',cut:'Chopping',cook:'Stirring',crop:'Harvesting'})[name]);
         // Cutting/stirring only remains audible while the pointer is moving.
         this.motionTimer=setInterval(()=>{
-            if (['cut','cook'].includes(this.workName) && this.now()-this.lastMotion>this.settings.motion_idle_ms)
-                this.workGain.gain.setTargetAtTime(0,this.context.currentTime,0.035);
+            if (this.now()-this.lastMotion>this.settings.motion_idle_ms) {
+                this.motionActive=false;this.stopWork();
+            }
         },this.settings.motion_check_interval_ms);
     }
     stopWork() {
@@ -174,13 +218,14 @@ class GameAudio {
         const carePage = ['water_minigame','fertilizer_minigame','harvest'].includes(state.page);
         // Local press/release is authoritative for sprinkling. A queued hover
         // snapshot can still say dragging=false after a newer local press.
-        const active = this.held && (carePage || (state.page==='cooking' && state.cooking?.dragging));
+        const active = (this.held || this.motionActive) && this.now()-this.lastMotion<=this.settings.motion_idle_ms && (carePage || (state.page==='cooking' && state.cooking?.dragging));
         if (!active) {this.stopWork();return;}
         const desired=state.page==='water_minigame'?'water':state.page==='fertilizer_minigame'?'soil':state.page==='harvest'?'crop':state.cooking.gesture_kind==='stir'?'cook':'cut';
         if(this.workName!==desired)this.startWork(desired);
     }
     handle(state,events=[]) {
         if (state) this.latestState = state;
+        this.updateTaskPosition();
         if (state?.paused) { this.stopAll(); return; }
         this.syncWork(state);
         this.syncBackground(state);
@@ -242,7 +287,7 @@ class GameAudio {
             if(!buffer)return Promise.resolve();
             const name=names[i], gain=this.context.createGain();
             gain.gain.value=this.settings.one_shot_gain[this.settings.one_shot_gain_links[name]||name]??0.8;
-            gain.connect(this.master);
+            gain.connect(['pickaxe','break','destroy'].includes(name) ? this.taskInput : this.master);
             const source=this.context.createBufferSource();source.buffer=buffer;source.connect(gain);
             this.oneShotSources.add(source);
             return new Promise(resolve=>{
@@ -308,12 +353,14 @@ class GameAudio {
         if (this.fishingSource) {try{this.fishingSource.stop();}catch{}this.fishingSource=null;}
     }
     stopAll() {
+        this.motionActive=false;
         this.stopFishing();
         this.stopTasks(); this.stopBackground(); this.oneShotToken++;
         for (const source of this.oneShotSources) { try { source.stop(); } catch {} }
         this.oneShotSources.clear();
     }
     stopTasks() {
+        this.motionActive=false;
         this.miningNarrationToken++;
         this.effectToken++; this.clickToken++;
         for (const source of this.clickSources) {try {source.stop();} catch {}}

@@ -11,7 +11,8 @@ class GameKeys {
     down(key) {
         key = String(key).toUpperCase();
         if (this.pressed.has(key)) return;
-        const commands = {F1:'minimap', F2:'resources', F4:'pause', ARROWLEFT:'left', ARROWRIGHT:'right'};
+        // TEMP_EVALUATION_CLICK: restore F4:'pause' after the evaluation.
+        const commands = {F1:'minimap', F2:'resources', F4:'click', ARROWLEFT:'left', ARROWRIGHT:'right'};
         if (key !== 'F3' && !commands[key]) return;
         const press = {long:false, timer:null, started:this.now()};
         this.pressed.set(key, press);

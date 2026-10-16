@@ -1913,6 +1913,13 @@
       "hide_zero_items": true
     },
     "audio": {
+      "task_spatial": {
+        "enabled": true,
+        "mix": 0.25,
+        "horizontal_range": 0.8,
+        "depth_range": 0.6,
+        "smoothing_seconds": 0.05
+      },
       "default_volume": 0.7,
       "work_gain": {
         "water": 0.6,

@@ -15,7 +15,7 @@
 <div class="top-info"><div class="info-box">Day<strong id="day-text">Day 1</strong></div><div class="info-box">Location<strong id="location-text">Home</strong></div><div class="info-box">Gold<strong id="coin-text">60</strong></div><div class="info-box">Activity time<strong id="time-text">0 / 20</strong></div></div>
 <div class="pad-panel" id="pad-panel"><div class="device-top"><b>dot<span style="font-weight:300"> pad</span></b><span>TACTILE GAME SIMULATOR</span><span>60 × 40</span></div>
 <div class="hardware-layout"><div class="screen"><canvas id="dotpad" width="900" height="600" tabindex="0" aria-label="Tactile game pad. W/A/S/D move the pointer, Enter selects, and Space presses or releases."></canvas></div></div>
-<div class="hardware-controls"><button id="nav-prev" class="physical-arrow" aria-label="Go left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4L6 12l10 8Z"/></svg></button><div class="controls"><button data-command="minimap">F1<span>Map</span></button><button data-command="resources">F2<span>Inventory</span></button><button data-command="load" title="Press to load; hold to save">F3<span>Load / Save</span></button><button data-command="pause">F4<span>Pause</span></button></div><button id="nav-next" class="physical-arrow" aria-label="Go right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l10 8L8 20Z"/></svg></button></div>
+<div class="hardware-controls"><button id="nav-prev" class="physical-arrow" aria-label="Go left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4L6 12l10 8Z"/></svg></button><div class="controls"><button data-command="minimap">F1<span>Map</span></button><button data-command="resources">F2<span>Inventory</span></button><button data-command="load" title="Press to load; hold to save">F3<span>Load / Save</span></button><button data-command="click">F4<span>Click</span></button></div><button id="nav-next" class="physical-arrow" aria-label="Go right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l10 8L8 20Z"/></svg></button></div>
 <div class="device-leds" aria-hidden="true"><i></i><i></i></div><div class="braille-bezel"><canvas id="timepad" width="600" height="60" aria-label="Activity time used, shown in the lower 20 cells"></canvas></div>
 <div class="device-bottom"><span>DOTDEW VALLEY</span><span id="pointer-info">TOUCH · DRAG · RELEASE</span></div></div>
 
@@ -24,8 +24,8 @@
 <section class="card"><div class="section-tag">CURRENT SCENE</div><div class="scene-title" id="page-text">Home</div><div class="scene-sub" id="task-progress">Choose an activity to start your day.</div><h2 style="margin-top:22px">Voice guidance <small id="tts-text" class="section-tag">Loading</small></h2><div id="caption" role="status">Select an object on the pad.</div><div class="toolbar"><button id="repeat-button">Replay</button><button id="mute-button" aria-pressed="false">Speech on</button><button id="tts-test-button">Test</button></div><p id="voice-info" class="scene-sub">Loading English voices…</p><label class="setting">Speech rate <input id="speech-rate" type="range" min="0.8" max="1.5" step="0.1" value="1.1"><span id="rate-label">1.1×</span></label><label class="setting">Sound volume <input id="sfx-volume" type="range" min="0" max="1" step="0.1" value="0.7"><span id="volume-label">70%</span></label><div class="toolbar" style="margin-top:12px"><button id="sfx-toggle" aria-pressed="false">Sound on</button></div><p id="sound-text" class="scene-sub">Task and reward sounds ready</p></section>
 <section class="card"><h2>Daily status</h2><div id="score-feedback" style="color:var(--mint);font-size:12px;min-height:22px"></div><div id="buff-text">No food effect</div><div class="progress-track"><div id="activity-fill"></div></div><div class="metrics"><div>Fertilizer<strong id="fertilizer-text">2</strong></div><div>Unlocked plots<strong id="plot-text">2</strong></div><div>Seed recovery<strong id="research-text">Level 0</strong></div><div>Time left<strong id="remaining-text">20 hours</strong></div></div></section>
 <section class="card"><h2>Objects nearby</h2><div class="scene-sub" style="margin-bottom:12px">These buttons perform the same actions as the tactile objects.</div><div id="object-list"></div></section>
-<section class="card"><h2>Physical pad and hand tracking</h2><div class="toolbar"><button id="usb-button">Connect USB pad</button></div><p class="scene-sub" id="hardware-status">Web simulator · USB not connected</p><label class="setting" for="tracking-url">Hand-tracking server</label><input id="tracking-url" value="ws://127.0.0.1:8765" aria-label="Hand-tracking WebSocket address" style="width:100%;padding:9px;background:#111b13;border:1px solid #41543b;color:#dcead4;border-radius:6px;margin:8px 0"><div class="toolbar"><button id="tracking-button">Connect hand tracking</button><button id="tracking-hold" aria-pressed="false" disabled>Press</button></div><p id="tracking-status" class="scene-sub">Not connected</p><p class="scene-sub" style="line-height:1.6">The reference server sends hand coordinates only. Use the press button to begin selecting or dragging, then press it again to release.</p><a href="https://github.com/eun022/hand_drawing" target="_blank" rel="noopener noreferrer" style="color:#cbe8b8;font-size:12px">Connection tools and setup ↗</a></section><details class="card"><summary>Diagnostics and reset</summary><p>This page simulates the tactile pad. Connect a USB pad using Chrome or Edge on localhost. Start the hand-tracking server before connecting. Hold F3 to save progress to a local file. After restarting the server, press F3 to load a saved game.</p><div id="status"></div><button class="text-button" id="reset-button">New game</button></details>
-</aside></div></div><script src="/static/game-audio.js?v=rowan-2"></script><script src="/static/game-keys.js?v=20260916-hold-feedback3"></script>
+<section class="card"><h2>Physical pad and hand tracking</h2><div class="toolbar"><button id="usb-button">Connect USB pad</button></div><p class="scene-sub" id="hardware-status">Web simulator · USB not connected</p><label class="setting" for="tracking-url">Hand-tracking server</label><input id="tracking-url" value="ws://127.0.0.1:8765" aria-label="Hand-tracking WebSocket address" style="width:100%;padding:9px;background:#111b13;border:1px solid #41543b;color:#dcead4;border-radius:6px;margin:8px 0"><div class="toolbar"><button id="tracking-button">Connect hand tracking</button><button id="tracking-hold" aria-pressed="false" disabled>Press</button></div><p id="tracking-status" class="scene-sub">Not connected</p><p class="scene-sub" style="line-height:1.6">The reference server sends hand coordinates only. Use the press button to select objects. In farming and cooking minigames, simply move your hand.</p><a href="https://github.com/eun022/hand_drawing" target="_blank" rel="noopener noreferrer" style="color:#cbe8b8;font-size:12px">Connection tools and setup ↗</a></section><details class="card"><summary>Diagnostics and reset</summary><p>This page simulates the tactile pad. Connect a USB pad using Chrome or Edge on localhost. Start the hand-tracking server before connecting. Hold F3 to save progress to a local file. After restarting the server, press F3 to load a saved game.</p><div id="status"></div><button class="text-button" id="reset-button">New game</button></details>
+</aside></div></div><script src="/static/game-audio.js?v=task-spatial-1"></script><script src="/static/game-keys.js?v=evaluation-click-1"></script>
 <script>
 
 const canvas = document.getElementById("dotpad");
@@ -398,7 +398,7 @@ function drawState(state) {
         list.replaceChildren();
         if(!objects.length){
             const help=document.createElement("p");help.className="scene-sub";help.style.lineHeight="1.7";
-            help.textContent=state.page==="cooking"?"Press the filled square and follow the line. Release between stages. Press F1 to open the map.":"Hold and drag over targets. Press F1 to open the map.";
+            help.textContent=state.page==="cooking"?"Move to the filled square and follow the line. No press needed. Press F1 to open the map.":"Move over targets. No press needed. Press F1 to open the map.";
             list.append(help);
         }
         objects.forEach(o => {
@@ -456,7 +456,7 @@ async function handleResponse(response) {
 let queuedHover = null;
 function queuePointer(endpoint, x, y) {
     // Spatial audio follows local mouse/hand movement without waiting for the API.
-    if (currentState?.page === "fishing") gameAudio.move(x,y);
+    if (endpoint.endsWith("/move") || endpoint.endsWith("/drag")) gameAudio.move(x,y);
     if (endpoint.endsWith("/move")) {
         if (queuedHover) {queuedHover.x=x;queuedHover.y=y;return requestQueue;}
         const hover={x,y};queuedHover=hover;
@@ -470,7 +470,6 @@ function queuePointer(endpoint, x, y) {
         return requestQueue;
     }
     if(endpoint.endsWith("/down")) gameAudio.inputDown(currentState,x,y);
-    if(endpoint.endsWith("/drag")) gameAudio.move(x,y);
     if(endpoint.endsWith("/up")) gameAudio.inputUp();
     requestQueue = requestQueue.then(async () => {
         try {
@@ -509,6 +508,18 @@ function sendMoveIfPossible(force=false) {
 }
 
 function sendCommand(command) {
+    // TEMP_EVALUATION_CLICK: use the latest local tracking position, not a
+    // potentially delayed server hover. F4 key-up never clicks a second time.
+    if (["click", "pause", "f4"].includes(String(command).toLowerCase())) {
+        unlockSpeech();
+        const x = pointerX, y = pointerY;
+        pointerPressed = false;
+        // Freeze any coalesced hover before queuing the click.
+        queuedHover = null;
+        queuePointer("/api/pointer/down", x, y);
+        return queuePointer("/api/pointer/up", x, y);
+    }
+    // Original pause route: enqueueRequest("/api/command", {command:"pause"});
     gameAudio.stopTasks();
     unlockSpeech();
     pointerPressed = false;
