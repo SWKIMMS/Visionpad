@@ -21,11 +21,11 @@
 
 
 </main><aside>
-<section class="card"><div class="section-tag">CURRENT SCENE</div><div class="scene-title" id="page-text">Home</div><div class="scene-sub" id="task-progress">Choose an activity to start your day.</div><h2 style="margin-top:22px">Voice guidance <small id="tts-text" class="section-tag">Loading</small></h2><div id="caption" role="status">Select an object on the pad.</div><div class="toolbar"><button id="repeat-button">Replay</button><button id="mute-button" aria-pressed="false">Speech on</button><button id="tts-test-button">Test</button></div><p id="voice-info" class="scene-sub">Loading English voices…</p><label class="setting">Speech rate <input id="speech-rate" type="range" min="0.8" max="1.5" step="0.1" value="1.1"><span id="rate-label">1.1×</span></label><label class="setting">Sound volume <input id="sfx-volume" type="range" min="0" max="1" step="0.1" value="0.7"><span id="volume-label">70%</span></label><div class="toolbar" style="margin-top:12px"><button id="sfx-toggle" aria-pressed="false">Sound on</button></div><p id="sound-text" class="scene-sub">Task and reward sounds ready</p></section>
+<section class="card"><div class="section-tag">CURRENT SCENE</div><div class="scene-title" id="page-text">Home</div><div class="scene-sub" id="task-progress">Choose an activity to start your day.</div><h2 style="margin-top:22px">Voice guidance <small id="tts-text" class="section-tag">Loading</small></h2><div id="caption" role="status">Select an object on the pad.</div><div class="toolbar"><button id="repeat-button">Replay</button><button id="mute-button" aria-pressed="false">Speech on</button><button id="tts-test-button">Test guide</button><button id="npc-voice-test">Test Rowan</button><button id="speech-stop">Stop speech</button></div><p id="voice-info" class="scene-sub">Checking English voices…</p><label class="setting" for="speech-volume">Speech volume <input id="speech-volume" type="range" min="0" max="1" step="0.05" value="0.85" aria-valuetext="85 percent"><span id="speech-volume-label" aria-hidden="true">85%</span></label><label class="setting">Speech rate <input id="speech-rate" type="range" min="0.8" max="1.5" step="0.1" value="1.0"><span id="rate-label">1.0×</span></label><label class="setting">Sound volume <input id="sfx-volume" type="range" min="0" max="1" step="0.1" value="0.9"><span id="volume-label">90%</span></label><div class="toolbar" style="margin-top:12px"><button id="sfx-toggle" aria-pressed="false">Sound on</button><button id="target-cues-toggle" aria-pressed="true" aria-describedby="target-cues-help">Target cues on</button></div><p id="sound-text" class="scene-sub">Task and reward sounds ready</p><p id="target-cues-help" class="scene-sub">Farm and mine targets: follow the short tone. Closer targets pulse faster.</p></section>
 <section class="card"><h2>Daily status</h2><div id="score-feedback" style="color:var(--mint);font-size:12px;min-height:22px"></div><div id="buff-text">No food effect</div><div class="progress-track"><div id="activity-fill"></div></div><div class="metrics"><div>Fertilizer<strong id="fertilizer-text">2</strong></div><div>Unlocked plots<strong id="plot-text">2</strong></div><div>Seed recovery<strong id="research-text">Level 0</strong></div><div>Time left<strong id="remaining-text">20 hours</strong></div></div></section>
 <section class="card"><h2>Objects nearby</h2><div class="scene-sub" style="margin-bottom:12px">These buttons perform the same actions as the tactile objects.</div><div id="object-list"></div></section>
 <section class="card"><h2>Physical pad and hand tracking</h2><div class="toolbar"><button id="usb-button">Connect USB pad</button></div><p class="scene-sub" id="hardware-status">Web simulator · USB not connected</p><label class="setting" for="tracking-url">Hand-tracking server</label><input id="tracking-url" value="ws://127.0.0.1:8765" aria-label="Hand-tracking WebSocket address" style="width:100%;padding:9px;background:#111b13;border:1px solid #41543b;color:#dcead4;border-radius:6px;margin:8px 0"><div class="toolbar"><button id="tracking-button">Connect hand tracking</button><button id="tracking-hold" aria-pressed="false" disabled>Press</button></div><p id="tracking-status" class="scene-sub">Not connected</p><p class="scene-sub" style="line-height:1.6">The reference server sends hand coordinates only. Use the press button to select objects. In farming and cooking minigames, simply move your hand.</p><a href="https://github.com/eun022/hand_drawing" target="_blank" rel="noopener noreferrer" style="color:#cbe8b8;font-size:12px">Connection tools and setup ↗</a></section><details class="card"><summary>Diagnostics and reset</summary><p>This page simulates the tactile pad. Connect a USB pad using Chrome or Edge on localhost. Start the hand-tracking server before connecting. Hold F3 to save progress to a local file. After restarting the server, press F3 to load a saved game.</p><div id="status"></div><button class="text-button" id="reset-button">New game</button></details>
-</aside></div></div><script src="/static/game-audio.js?v=volume-direction-4"></script><script src="/static/game-keys.js?v=evaluation-click-1"></script>
+</aside></div></div><script src="/static/game-audio.js?v=team-audio-9"></script><script src="/static/game-speech.js?v=team-speech-9"></script><script src="/static/game-keys.js?v=evaluation-click-1"></script>
 <script>
 
 const canvas = document.getElementById("dotpad");
@@ -55,213 +55,39 @@ let pointerY = 0;
 let pointerInside = false;
 let pointerPressed = false;
 let currentState = null;
-let audioContext = null;
 const gameAudio = new GameAudio({onNarration:text=>announce(text),onStatus:text=>document.getElementById("sound-text").textContent=text});
 gameAudio.preload();
-let englishVoice = null;
-let lastSpokenText = "";
-let lastSpokenAt = 0;
-let speechSequence = 0;
 let lastPointerSendAt = 0;
-let speechEnabled = true;
-let lastAnnouncement = "Select an object on the pad.";
-let actionSpeaking = false;
 let hoverTimer = null;
 let objectSignature = "";
 let scoreTimer = null;
-// Keep the latest message until the browser can actually start speech.
-let pendingSpeech = null;
-let activeUtterance = null;
-// Logical channels: quest narration finishes before other speech uses the synth.
-let questSpeech = null;
-let deferredActionSpeech = null;
-function finishQuestSpeech() {
-    questSpeech = null;
-    const next = deferredActionSpeech;
-    deferredActionSpeech = null;
-    if (next && speechEnabled) speak(next.text, next.important, next.channel);
-}
-function announce(text, priority="action", channel="general") {
-    if (text) speak(text, priority !== "hover", channel);
+const gameSpeech = new GameSpeech({
+    getContext: () => { gameAudio.unlock(); return gameAudio.context; },
+    onCaption: text => { document.getElementById("caption").textContent = text; },
+    onStatus: text => { ttsText.textContent = text; },
+    onDucking: active => gameAudio.setDucked(active)
+});
+function announce(text, priority="action", profile="system", channel="general") {
+    if (text) return gameSpeech.say(text, {priority, profile, channel});
 }
 function connection(ok, message) {
     document.getElementById("connection").classList.toggle("online", ok);
     document.getElementById("connection-text").textContent = message;
 }
 let requestQueue = Promise.resolve();
-
-function refreshVoices() {
-    if (!("speechSynthesis" in window)) {
-        ttsText.textContent = "Unavailable";
-        return;
-    }
-    const voices = speechSynthesis.getVoices();
-    const locale = voice => String(voice.lang || "").replace(/_/g, "-").toLowerCase();
-    englishVoice = voices.find(v => locale(v) === "en-us")
-        || voices.find(v => /^en(?:-|$)/.test(locale(v))) || null;
-    const voiceInfo = document.getElementById("voice-info");
-    if (voiceInfo) voiceInfo.textContent = englishVoice
-        ? `${englishVoice.name || "English"} (${englishVoice.lang})`
-        : "No English voice available. Enable an English system voice, then reload.";
-    if (!activeUtterance) ttsText.textContent = englishVoice ? "Ready" : "English voice not found";
-}
-function playPendingSpeech() {
-    if (!speechEnabled || !pendingSpeech || !("speechSynthesis" in window)) return;
-    const message = pendingSpeech;
-    const sequence = ++speechSequence;
-    // Invalidate old callbacks before cancel, including delayed start callbacks.
-    speechSynthesis.cancel();
-    gameAudio.setDucked(false);
-    activeUtterance = null;
-    actionSpeaking = false;
-    refreshVoices();
-    // Never let an unavailable English voice fall back to the system's Korean voice.
-    // Keep the latest message pending for voiceschanged or the next user input.
-    if (!englishVoice) return;
-    speechSynthesis.resume();
-    const utterance = new SpeechSynthesisUtterance(message.text);
-    activeUtterance = utterance;
-    utterance.lang = englishVoice.lang.replace(/_/g, "-");
-    utterance.rate = Number(document.getElementById("speech-rate").value);
-    utterance.volume = 1;
-    utterance.voice = englishVoice;
-    utterance.onstart = () => {
-        if (sequence !== speechSequence) return;
-        pendingSpeech = null;
-        actionSpeaking = message.important;
-        gameAudio.setDucked(true);
-        ttsText.textContent = "Speaking";
-    };
-    utterance.onend = () => {
-        if (sequence !== speechSequence) return;
-        pendingSpeech = null;
-        activeUtterance = null;
-        actionSpeaking = false;
-        gameAudio.setDucked(false);
-        ttsText.textContent = "Ready";
-        if (message.channel === "quest") finishQuestSpeech();
-    };
-    utterance.onerror = event => {
-        if (sequence !== speechSequence) return;
-        activeUtterance = null;
-        actionSpeaking = false;
-        gameAudio.setDucked(false);
-        if (!["canceled", "interrupted"].includes(event.error)) {
-            pendingSpeech = message;
-            ttsText.textContent = event.error === "not-allowed"
-                ? "Click or press a key to enable speech" : "Preparing speech · Replay is available";
-        }
-    };
-    // Call synchronously so a first trusted input retains browser activation.
-    speechSynthesis.speak(utterance);
-}
-function unlockSpeech() {
-    gameAudio.unlock();
-    refreshVoices();
-    if ("speechSynthesis" in window) {
-        speechSynthesis.resume();
-        if (pendingSpeech && !activeUtterance) playPendingSpeech();
-    }
-}
-function speak(text, important=true, channel="general") {
-    const normalized = String(text || "").trim();
-    if (!normalized) return;
-    const message = {text:normalized, important, channel};
-    if (questSpeech && speechEnabled && channel !== 'quest') {
-        // Keep the quest layer protected. Retain only the latest action;
-        // discard hover messages so stale labels are never replayed.
-        if (important) deferredActionSpeech = message;
-        return;
-    }
-    // A new quest replaces the active quest immediately, even if text repeats.
-    // playPendingSpeech invalidates old callbacks before cancelling the synth.
-    if (channel === 'quest' && speechEnabled) questSpeech = message;
-    clearTimeout(hoverTimer);
-    lastAnnouncement = normalized;
-    document.getElementById("caption").textContent = normalized;
-    pendingSpeech = speechEnabled ? message : null;
-    playPendingSpeech();
-}
-if ("speechSynthesis" in window) {
-    speechSynthesis.addEventListener("voiceschanged", () => {
-        refreshVoices();
-        if (pendingSpeech && !activeUtterance) playPendingSpeech();
-    });
-    refreshVoices();
-}
+let audioPresenceVersion = 0;
+function captureAudioRequest() { return gameAudio.suspended ? null : audioPresenceVersion; }
+function unlockSpeech() { gameAudio.unlock(); return gameSpeech.unlock(); }
+function speak(text, important=true) { return announce(text, important ? "action" : "hover"); }
+gameSpeech.voices().then(info => {
+    const ready = info.profiles.every(profile => profile.ready);
+    document.getElementById("voice-info").textContent = ready
+        ? "Consistent English voices · Guide and Rowan"
+        : "English voices need setup. Follow the project speech setup guide.";
+    if (!gameSpeech.active && gameSpeech.enabled && !gameSpeech.suspended) ttsText.textContent = ready ? "Ready" : "Voice setup needed";
+}).catch(() => { document.getElementById("voice-info").textContent = "Could not check English voices. Reload to retry."; });
 document.addEventListener("pointerdown", unlockSpeech, {capture:true});
 document.addEventListener("keydown", unlockSpeech, {capture:true});
-
-function ensureAudioContext() {
-    if (!audioContext) {
-        audioContext = new (
-            window.AudioContext || window.webkitAudioContext
-        )();
-    }
-
-    if (audioContext.state === "suspended") {
-        audioContext.resume();
-    }
-}
-
-function playTone(frequency, duration=0.09, volume=0.06) {
-    gameAudio.playTone(frequency,duration,volume,[pointerX,pointerY]);
-}
-
-function playSfx(name) {
-    if (!gameAudio.enabled || gameAudio.volume <= 0 || !name) {
-        return;
-    }
-
-    const profiles = {
-        hover_bed: [300, 0.10],
-        hover_chest: [680, 0.08],
-        hover_plot: [440, 0.07],
-        hover_node: [560, 0.07],
-        hover_route: [400, 0.06],
-        hover_water_tool: [620, 0.08],
-        hover_fertilizer: [760, 0.08],
-        hover_seed: [840, 0.07],
-        hover_resource: [720, 0.06],
-        hover_research: [790, 0.08],
-        hover_harvest_crop: [870, 0.06],
-        hover_navigation: [520, 0.06],
-        hover_object: [500, 0.06],
-        hover_stove: [610, 0.08],
-        hover_recipe: [760, 0.07],
-        hover_ingredient: [690, 0.07],
-        hover_cooking: [820, 0.07],
-        hover_shop: [550, 0.08],
-        hover_shop_item: [720, 0.07],
-        open_page: [640, 0.10],
-        travel: [460, 0.12],
-        tool_pickup: [700, 0.10],
-        plant: [580, 0.12],
-        water: [520, 0.16],
-        fertilize: [780, 0.14],
-        research: [740, 0.16],
-        harvest_start: [820, 0.12],
-        harvest_collect: [980, 0.06],
-        harvest: [900, 0.16],
-        morning: [660, 0.18],
-        day_end: [240, 0.24],
-        cooking_start: [700, 0.12],
-        cooking_trace: [930, 0.04],
-        cooking_success: [980, 0.18],
-        ingredient_select: [780, 0.08],
-        eat_food: [640, 0.16],
-        shop_open: [520, 0.14],
-        shop_buy: [860, 0.12],
-        shop_sell: [740, 0.12],
-        care_start: [690, 0.12],
-        care_spray: [910, 0.05],
-        hover_tool: [730, 0.07],
-        error: [180, 0.12]
-    };
-
-    const profile = profiles[name] || [700, 0.08];
-    playTone(profile[0], profile[1], (name.startsWith("hover_") ? 0.045 : 0.08));
-}
 
 function eventToLogical(event) {
     const rect = canvas.getBoundingClientRect();
@@ -337,6 +163,7 @@ function drawDotMatrix(targetCanvas, targetCtx, dots, width, height) {
 }
 
 function drawState(state) {
+    if (currentState && (currentState.page !== state.page || currentState.paused !== state.paused || currentState.sleeping !== state.sleeping)) gameSpeech.stop();
     currentState = state;
     applyClientSettings(state.client_settings);
     logicalWidth = state.width;
@@ -383,7 +210,7 @@ function drawState(state) {
         button.classList.toggle("active", active);
         button.setAttribute("aria-pressed", String(active));
     }
-    const tasks = {ingredient_select:"Select all ingredients to start cooking",mine:"Tap rocks to mine",home:"Bed · Research · Kitchen",farm:"Choose a plot to manage your crops",town:"Buy and sell at the shop",shop_choice:"S: Sell · B: Buy",cooking:"Start at the filled square and follow the line",inventory:"Select a dish to use its effect"};
+    const tasks = {ingredient_select:"Select all ingredients to start cooking",mine:"Tap rocks to mine",home:"Bed · Research · Kitchen",farm:"Choose a plot to manage your crops",town:"Buy and sell at the shop",shop_choice:"Sell · Buy · Calendar · Ask Rowan for advice",cooking:"Start at the filled square and follow the line",inventory:"Select a dish to use its effect",npc_dialogue:"Rowan · Choose a topic or open the shop",fishing:"Follow the water sound · Press inside the lake to cast"};
     let task = tasks[state.page] || "Select an object to continue";
     if (state.page === "plot_detail") task = (state.objects || []).find(o=>o.type === "plot_detail_field")?.description || task;
     if (state.care?.mode) task = `Coverage ${state.care.collected_targets} / ${state.care.total_targets} · Cover the targets to finish`;
@@ -391,6 +218,7 @@ function drawState(state) {
     if (state.page === "cooking") task = `${state.cooking.stage_index+1}/${state.cooking.stage_count} ${state.cooking.stage_label} · ${Math.round(100*state.cooking.progress/Math.max(1,state.cooking.total))}% · Follow the line`;
     if (state.page === "cooking" && state.cooking.resume_point) task += " · Continue from the filled square";
     if (state.page === "inventory") task = `Inventory ${state.inventory.page}/${state.inventory.pages} · Owned items only`;
+    if (state.page === "fishing" && !state.resources?.fishing_rod) task = "Explore using the water sound · Buy a rod at the shop to cast";
     if (state.sleeping) task = "Sleeping · A new day will begin shortly";
     if (state.day_ended && !state.sleeping) task = "Night. Select the bed.";
     if (state.paused) task = "Paused · Press F4 to resume";
@@ -403,7 +231,9 @@ function drawState(state) {
         list.replaceChildren();
         if(!objects.length){
             const help=document.createElement("p");help.className="scene-sub";help.style.lineHeight="1.7";
-            help.textContent=state.page==="cooking"?"Move to the filled square and follow the line. No press needed. Press F1 to open the map.":"Move over targets. No press needed. Press F1 to open the map.";
+            help.textContent=state.page==="fishing"
+                ? "Use stereo headphones. Move toward the water sound, then press inside the lake to cast. Press F1 for the map."
+                : state.page==="cooking"?"Move to the filled square and follow the line. No press needed. Press F1 to open the map.":"Move over targets. No press needed. Press F1 to open the map.";
             list.append(help);
         }
         objects.forEach(o => {
@@ -429,9 +259,10 @@ function drawState(state) {
     updateStatus();
 }
 
-async function handleResponse(response) {
+async function handleResponse(response, audioToken) {
     if (!response.ok) throw new Error(`Server error ${response.status}`);
     const data = await response.json();
+    const playAudio = audioToken === audioPresenceVersion && !gameAudio.suspended;
     connection(true, "Connected");
 
     if (data.state) {
@@ -441,8 +272,8 @@ async function handleResponse(response) {
     // Passive visual observer: no input or game logic depends on this listener.
     try { window.dispatchEvent(new CustomEvent("dotdew-observer", {detail: {state:data.state, events:data.sound_events || [], message:data.tts, priority:data.priority, sfx:data.sfx}})); } catch (error) { console.warn("Observer unavailable", error); }
 
-    if (data.tts) gameAudio.miningNarrationToken++;
-    gameAudio.handle(data.state, data.sound_events || []);
+    if (data.tts && playAudio) gameAudio.miningNarrationToken++;
+    gameAudio.handle(data.state, playAudio ? data.sound_events || [] : [], playAudio ? data.sfx : null);
     const score = (data.sound_events || []).filter(e=>e.kind === "correct").reduce((n,e)=>n+e.count,0);
     if(score) {
         clearTimeout(scoreTimer);
@@ -450,26 +281,29 @@ async function handleResponse(response) {
         scoreTimer=setTimeout(()=>{document.getElementById("score-feedback").textContent="";},1400);
         document.getElementById("score-feedback").animate([{opacity:1},{opacity:0.25}],{duration:600});
     }
-    const recordedEvents = ["care_spray","harvest_collect","cooking_trace","cooking_wait","shop_open","shop_buy","shop_sell","research","water","fertilize"];
-    if (data.sfx && !(data.sound_events || []).some(e=>e.sound === "step") && !recordedEvents.includes(data.sfx) && !(data.sound_events?.length && data.sfx === "tool_pickup")) playSfx(data.sfx);
+    if (!playAudio) {
+        if (data.tts) gameSpeech.say(data.tts, {priority:data.priority || "action", profile:data.speech_profile || "system", channel:data.speech_channel || "general", silent:true});
+        return;
+    }
 
     if (data.tts) {
-        announce(data.tts, data.priority || "action", data.speech_channel || "general");
+        announce(data.tts, data.priority || "action", data.speech_profile || "system", data.speech_channel || "general");
     }
 }
 
 let queuedHover = null;
 function queuePointer(endpoint, x, y) {
+    const audioToken = captureAudioRequest();
     // Spatial audio follows local mouse/hand movement without waiting for the API.
     if (endpoint.endsWith("/move") || endpoint.endsWith("/drag")) gameAudio.move(x,y);
     if (endpoint.endsWith("/move")) {
-        if (queuedHover) {queuedHover.x=x;queuedHover.y=y;return requestQueue;}
-        const hover={x,y};queuedHover=hover;
+        if (queuedHover) {queuedHover.x=x;queuedHover.y=y;queuedHover.audioToken=audioToken;return requestQueue;}
+        const hover={x,y,audioToken};queuedHover=hover;
         requestQueue=requestQueue.then(async()=>{
             queuedHover=null;
             try {
-                const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(hover)});
-                await handleResponse(response);
+                const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({x:hover.x,y:hover.y})});
+                await handleResponse(response, hover.audioToken);
             } catch(error) {connection(false,"Connection error · Check the server");}
         });
         return requestQueue;
@@ -485,7 +319,7 @@ function queuePointer(endpoint, x, y) {
                 },
                 body: JSON.stringify({x, y})
             });
-            await handleResponse(response);
+            await handleResponse(response, audioToken);
         } catch (error) {
             console.error(error); gameAudio.stopAll(); connection(false,"Connection error · Check the server");
         }
@@ -525,17 +359,22 @@ function sendCommand(command) {
         return queuePointer("/api/pointer/up", x, y);
     }
     // Original pause route: enqueueRequest("/api/command", {command:"pause"});
+    if ((gameSpeech.active || gameSpeech.pending)?.channel !== "quest") gameSpeech.stop();
     gameAudio.stopTasks();
     unlockSpeech();
     pointerPressed = false;
     return enqueueRequest("/api/command", {command});
 }
 function enqueueRequest(endpoint, body) {
+    const audioToken = captureAudioRequest();
     requestQueue = requestQueue.then(async()=>{
         try {
             const response = await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-            await handleResponse(response);
-        } catch(error) { gameAudio.stopAll(); connection(false,"Connection error · Check the server"); announce("Connection error. Check the server."); }
+            await handleResponse(response, audioToken);
+        } catch(error) {
+            gameAudio.stopAll(); connection(false,"Connection error · Check the server");
+            if (audioToken === audioPresenceVersion && !gameAudio.suspended) announce("Connection error. Check the server.");
+        }
     });
     return requestQueue;
 }
@@ -557,7 +396,7 @@ canvas.addEventListener("pointermove", event=>{
 });
 canvas.addEventListener("pointerdown", event=>{
     if (!event.isPrimary || event.button!==0) return;
-    event.preventDefault(); canvas.focus(); unlockSpeech(); ensureAudioContext();
+    event.preventDefault(); canvas.focus(); unlockSpeech();
     canvas.setPointerCapture(event.pointerId); pointerInside=true;
     eventToLogical(event); pointerPressed=true; queuePointer("/api/pointer/down",pointerX,pointerY);
 });
@@ -639,9 +478,8 @@ document.addEventListener("visibilitychange", () => {if(document.hidden)gameKeys
 
 ttsTestButton.addEventListener("click", () => {
     unlockSpeech();
-    ensureAudioContext();
-    playSfx("hover_object");
-    speak("Available recipes: 3.");
+    gameAudio.feedback("hover_object");
+    speak("Press F1 for the map. Press F2 for your inventory. Press F4 to select.");
 });
 
 resetButton.addEventListener("click", () => {
@@ -649,14 +487,31 @@ resetButton.addEventListener("click", () => {
         gameAudio.stopAll(); unlockSpeech(); enqueueRequest("/api/reset", {});
     }
 });
-document.getElementById("repeat-button").addEventListener("click",()=>{unlockSpeech();lastSpokenAt=0;announce(lastAnnouncement)});
-document.getElementById("mute-button").addEventListener("click",event=>{
-    speechEnabled=!speechEnabled;
-    event.currentTarget.textContent=speechEnabled?"Speech on":"Speech off";
-    event.currentTarget.setAttribute("aria-pressed",String(!speechEnabled));
-    if (!speechEnabled && "speechSynthesis" in window) {speechSequence++;pendingSpeech=null;activeUtterance=null;questSpeech=null;deferredActionSpeech=null;speechSynthesis.cancel();actionSpeaking=false;gameAudio.setDucked(false);ttsText.textContent="Off";}
+document.getElementById("repeat-button").addEventListener("click",()=>{
+    unlockSpeech();
+    const dialogue = currentState?.dialogue;
+    if (dialogue) announce(`${dialogue.name}. ${dialogue.text}`, "dialogue", dialogue.profile, dialogue.channel || "general");
+    else gameSpeech.replay();
 });
-document.getElementById("speech-rate").addEventListener("input",event=>{document.getElementById("rate-label").textContent=event.target.value+"×"});
+document.getElementById("speech-stop").addEventListener("click",()=>gameSpeech.stop("Stopped"));
+document.getElementById("npc-voice-test").addEventListener("click",()=>{
+    unlockSpeech();announce("Rowan. Welcome to my shop. Take your time, and let me know what you need.", "dialogue", "shopkeeper");
+});
+document.getElementById("mute-button").addEventListener("click",event=>{
+    gameSpeech.setEnabled(!gameSpeech.enabled);
+    event.currentTarget.textContent=gameSpeech.enabled?"Speech on":"Speech off";
+    event.currentTarget.setAttribute("aria-pressed",String(!gameSpeech.enabled));
+});
+document.getElementById("speech-volume").addEventListener("input",event=>{
+    gameSpeech.setVolume(event.target.value);
+    const percent = Math.round(gameSpeech.volume*100);
+    document.getElementById("speech-volume-label").textContent = percent+"%";
+    event.target.setAttribute("aria-valuetext", percent+" percent");
+});
+document.getElementById("speech-rate").addEventListener("input",event=>{
+    gameSpeech.setRate(event.target.value);
+    document.getElementById("rate-label").textContent=event.target.value+"×";
+});
 for (const [id, command] of [["nav-prev", "left"], ["nav-next", "right"]]) {
     const button = document.getElementById(id);
     button.addEventListener("click", () => {
@@ -669,14 +524,34 @@ for (const [id, command] of [["nav-prev", "left"], ["nav-next", "right"]]) {
 document.getElementById("sfx-volume").addEventListener("input",event=>{
     gameAudio.unlock();gameAudio.setVolume(event.target.value);document.getElementById("volume-label").textContent=Math.round(event.target.value*100)+"%";
 });
+document.getElementById("target-cues-toggle").addEventListener("click",event=>{
+    gameAudio.setGuidanceEnabled(!gameAudio.guidanceEnabled);
+    unlockSpeech();
+    event.currentTarget.textContent=gameAudio.guidanceEnabled?"Target cues on":"Target cues off";
+    event.currentTarget.setAttribute("aria-pressed",String(gameAudio.guidanceEnabled));
+    announce(gameAudio.guidanceEnabled?"Farm and mine target cues on.":"Farm and mine target cues off.");
+});
 document.getElementById("sfx-toggle").addEventListener("click",event=>{
     gameAudio.unlock();gameAudio.setEnabled(!gameAudio.enabled);
     event.currentTarget.textContent=gameAudio.enabled?"Sound on":"Sound off";
     event.currentTarget.setAttribute("aria-pressed",String(!gameAudio.enabled));
     document.getElementById("sound-text").textContent=gameAudio.enabled?"Task and reward sounds ready":"Sound off";
 });
-window.addEventListener("blur",()=>{gameAudio.stopAll();if(pointerPressed){pointerPressed=false;sendCommand("release");}});
-document.addEventListener("visibilitychange",()=>{if(document.hidden)gameAudio.stopAll();});
+function syncAudioPresence() {
+    const away = document.hidden || !document.hasFocus();
+    if (away && !gameAudio.suspended) audioPresenceVersion++;
+    gameSpeech.setSuspended(away);
+    gameAudio.setSuspended(away);
+    if (away && pointerPressed) {
+        pointerPressed = false;
+        // Releasing a gesture must not unlock audio in the background.
+        enqueueRequest("/api/command", {command:"release"});
+    }
+}
+window.addEventListener("blur", syncAudioPresence);
+window.addEventListener("focus", syncAudioPresence);
+document.addEventListener("visibilitychange", syncAudioPresence);
+syncAudioPresence();
 window.DotdewInput = {
     state:()=>currentState,
     command:(command, phase)=>{
@@ -718,11 +593,12 @@ function applyClientSettings(settings = {}) {
 function refreshDelayedVisuals() {
     if (visualPollPending || document.hidden || (!delayedVisualPages.includes(currentState?.page) && !currentState?.sleeping) || currentState.paused) return;
     visualPollPending = true;
+    const audioToken = captureAudioRequest();
     requestQueue = requestQueue.then(async () => {
         if ((!delayedVisualPages.includes(currentState?.page) && !currentState?.sleeping) || currentState.paused) return;
         try {
             const response = await fetch("/api/visual-tick", {method:"POST"});
-            await handleResponse(response);
+            await handleResponse(response, audioToken);
         } catch (error) {
             connection(false, "Connection error · Check the server");
         }

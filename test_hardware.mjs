@@ -15,7 +15,7 @@ function setup(){
 test('F3 release produces one load command',()=>{const s=setup();s.receive(2);s.receive(0);assert.deepEqual(s.commands,['load'])});
 test('holding F3 saves once, without a load on release',()=>{const s=setup();s.receive(2);s.receive(2);s.advance(900);s.receive(0);assert.deepEqual(s.commands,['save'])});
 test('disconnect cancels an unfinished hold',async()=>{const s=setup();s.receive(2);await s.pad.disconnect();s.advance(1000);assert.deepEqual(s.commands,[])});
-test('F1 F2 F4 use the current key mapping',()=>{const s=setup();for(const m of [8,4,1]){s.receive(m);s.receive(0)}assert.deepEqual(s.commands,['minimap','resources','pause'])});
+test('F1 F2 F4 use the current key mapping',()=>{const s=setup();for(const m of [8,4,1]){s.receive(m);s.receive(0)}assert.deepEqual(s.commands,['minimap','resources','click'])});
 test('held status repeats never toggle menus repeatedly',()=>{const s=setup();s.receive(4);s.receive(4);s.receive(4);s.receive(0);assert.deepEqual(s.commands,['resources'])});
 test('simultaneous F2 and F3 releases preserve both edges',()=>{const s=setup();s.receive(6);s.receive(2);s.receive(0);assert.deepEqual(s.commands,['resources','load'])});
 test('reconnection can press the same key again',async()=>{const s=setup();s.receive(2);await s.pad.disconnect();s.receive(2);s.receive(0);assert.deepEqual(s.commands,['load'])});

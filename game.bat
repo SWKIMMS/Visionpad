@@ -4,20 +4,19 @@ setlocal
 
 cd /d "%~dp0"
 
-if not exist "venv\Scripts\python.exe" (
-    echo 가상환경이 없습니다.
-    echo python -m venv venv 를 먼저 실행하세요.
+set "VISIONPAD_PYTHON=.venv\Scripts\python.exe"
+if not exist "%VISIONPAD_PYTHON%" set "VISIONPAD_PYTHON=venv\Scripts\python.exe"
+if not exist "%VISIONPAD_PYTHON%" (
+    echo 먼저 setup-windows.bat를 실행해 주세요.
     pause
     exit /b 1
 )
 
-call "venv\Scripts\activate.bat"
-
-echo VisionPad Game 시작
-
-start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 2; Start-Process 'http://127.0.0.1:8003'"
-
-python -m uvicorn game_app:app --host 127.0.0.1 --port 8003
+"%VISIONPAD_PYTHON%" launch_game.py --port 8003 --prepare-demo
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
 
 pause
 endlocal

@@ -63,6 +63,12 @@ class SaveMixin:
         # Migrate pre-fishing saves without replacing existing progress.
         for key in ('fishing_target', 'fishing_last_catch', 'fishing_attempts', 'rod_casts', 'rod_catches', 'rowan_stage', 'rowan_greeted', 'rowan_dialogue', 'rowan_submit_open'):
             state.setdefault(key, copy.deepcopy(getattr(fresh, key)))
+        for key in ('npc_visits', 'dialogue'):
+            state.setdefault(key, copy.deepcopy(getattr(fresh, key)))
+        # Historical saves cannot prove whether a harvest/catch was the first ever.
+        state.setdefault('activity_history_complete', False)
+        for key in ('activity_counts', 'activity_serial', 'recent_activity', 'npc_reactions'):
+            state.setdefault(key, copy.deepcopy(getattr(fresh, key)))
         state['resources'].setdefault('fishing_rod', 0)
         state['resources'].setdefault('fish', {})
         # Retired high-grade fried fish becomes the supported medium variant.
@@ -129,14 +135,14 @@ class SaveMixin:
             os.replace(temp, target)
             for old in sorted(self.save_dir.glob("save_*.json"), reverse=True)[12:]: old.unlink()
         except (OSError, ValueError, TypeError):
-            return self.response(tts="Could not save the game.")
+            return self.response(tts="Could not save the game.", sfx="error")
         if self.current_page == "load_game":
             self._save_slots = self.list_saves()
             self.render()
         self.pointer_pressed = False
         self.care_dragging = self.harvest_dragging = self.cooking_dragging = False
         self.drag_tool = None
-        return self.response(tts="Game saved.")
+        return self.response(tts="Game saved.", sfx="saved")
 
     def open_load_game(self):
         if self.current_page != "load_game": self._load_return = self.snapshot()
@@ -149,7 +155,7 @@ class SaveMixin:
         self.pointer_pressed = False
         self.clear_hover()
         self.render()
-        return self.response(tts="Choose a save." if self._save_slots else "No saved games.")
+        return self.response(tts="Choose a save." if self._save_slots else "No saved games.", sfx="open_page")
 
     def close_load_game(self):
         if self._load_return is not None: self.restore_snapshot(self._load_return)
@@ -158,14 +164,14 @@ class SaveMixin:
 
     def load_game(self, slot_id):
         if self.current_page != "load_game" or slot_id not in {s["id"] for s in self._save_slots}:
-            return self.response(tts="Save unavailable.")
+            return self.response(tts="Save unavailable.", sfx="error")
         try:
             data = json.loads((self.save_dir / (slot_id + ".json")).read_text(encoding="utf-8"))
             if data["version"] != 1: raise ValueError("Save version")
             self.restore_snapshot(decode(data["state"]))
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
-            return self.response(tts="Could not load this save.")
-        return self.response(tts=f"Game loaded. Day {self.day}. {self.get_page_name(self.current_page)}.")
+            return self.response(tts="Could not load this save.", sfx="error")
+        return self.response(tts=f"Game loaded. Day {self.day}. {self.get_page_name(self.current_page)}.", sfx="loaded")
 
     def get_load_objects(self):
         objects = []

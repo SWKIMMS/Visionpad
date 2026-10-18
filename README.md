@@ -15,16 +15,18 @@ The project explores how blind and low-vision players can understand a game worl
 | Touch | Position, shape, layout, paths, and progress |
 | Speech and sound | Names, quantities, states, and action results |
 | Visual display | Images, quantities, and selection highlights for low-vision players and companions |
-| Buttons | Navigation, menus, saving, loading, and pause |
+| Buttons | Navigation, menus, saving, loading, and selection |
 | Pointer and hand gestures | Selecting, sweeping, tracing, and tapping |
 
 Exploration and travel cost no game time. Moving over an object and pressing it are separate inputs, so reading the display does not trigger an action.
 
-Farming, cooking, mining, trading, and research are implemented. Fishing, ranching, music, NPC dialogue, quests, and crafting are planned. The controls below describe the current build; some differ from the initial proposal.
+Farming, cooking, mining, trading, research, fishing, and one authored NPC conversation are implemented. Ranching, music activities, quests, and crafting are planned. The controls below describe the current build; some differ from the initial proposal.
 
 ## Running the game
 
-Create a Python environment and install the dependencies from the project root.
+For the first setup, install Python 3.11 or newer and open **setup-mac.command** on Mac or **setup-windows.bat** on Windows. These create a project environment, install the dependencies and download both voices. Internet is needed for that setup. For later starts, open **start-mac.command** or **game.bat**. The launcher checks the setup, waits for the server, prepares demo voices and opens the game. An existing game on the selected port is reused without a restart. See the [setup and handoff guide](docs/audio/SETUP.md).
+
+For manual setup, create a Python environment and install the dependencies from the project root.
 
 ```bash
 python -m venv venv
@@ -34,10 +36,11 @@ venv\Scripts\activate
 source venv/bin/activate
 
 python -m pip install -r requirements.txt
-python -m uvicorn game_app:app --host 127.0.0.1 --port 8000
+python tools/prepare_speech.py --download
+python launch_game.py --prepare-demo
 ```
 
-Open `http://127.0.0.1:8000` in a browser. Builds with the Windows launcher use `game.bat` to run `launch_game.py`; use the address printed by that launcher. Serve the HTML through the local server rather than opening it directly.
+The Mac launcher and manual command default to `http://127.0.0.1:8000`. Windows `game.bat` preserves its existing port, `http://127.0.0.1:8003`. Use the address printed by the launcher. Serve the HTML through the local server rather than opening it directly.
 
 1. Click or press a key on the game page to enable audio.
 2. Use the mouse and keyboard, or connect the USB pad and hand-tracking server.
@@ -46,18 +49,42 @@ Open `http://127.0.0.1:8000` in a browser. Builds with the Windows launcher use 
 
 Restart the server after changing the configuration. After replacing web files, hard-refresh the game page and reopen the companion window.
 
+On this Mac, the prepared environment is `.venv/`. The launchers also recognize an existing `venv/`. Run `python tools/check_setup.py --synthesize` from the active environment to diagnose files, packages and actual voice generation without starting or changing a game. Mac arm64 with Python 3.14.3 has been checked; the Windows helpers still need an actual Windows run.
+
+## English voices and Rowan
+
+The October 18 update adds server-side cancellation/priority, one-time Rowan reactions to recent results, and directional beacons for farm and mine targets. Toggle **Target cues on/off** to compare them; fishing guidance is unchanged. See [gameplay changes and verification](docs/audio/GAMEPLAY_UPDATE.md). Reactions remember the latest real result and survive saves; older saves use general reactions because their earlier milestones are unknown.
+
+Speech uses Piper on the Python server with fixed English models, rather than the operating system's browser voices. The first setup command above downloads the two models to `models/piper/` and prepares sample audio. These files and generated speech in `.cache/speech/` are excluded from Git. No speech-service account or API key is needed for this implementation. A first request generates audio; repeated requests reuse the saved WAV. The first model load and a new sentence can take longer than cached playback.
+
+- **Test guide** plays button instructions; **Test Rowan** plays the shopkeeper's voice.
+- **Replay** repeats the current NPC line during a conversation, or the latest announcement elsewhere. **Stop speech** skips the current line. **Speech on/off** and **Speech rate** control speech separately from game sounds.
+- **Speech volume** starts at 85% and changes only speech, including Rowan. **Sound volume** continues to control game sounds. Changing speech volume during a line does not restart it or regenerate audio. Reloading resets speech volume to 85%.
+- In **Shop**, select **Ask Rowan for advice**. Choose **Farming**, **Fishing**, **Open shop**, or **Goodbye**. Advice follows the current crops and rod ownership. Advice and replay spend no game time or resources. The village Rowan keeps the team's soup, seeds and crop-submission tutorial.
+- Music drops to 25% of its normal gain while speech plays and returns afterward. Hover descriptions wait behind action results and dialogue. Fishing retains its existing HRTF positioning and full exploration-sound gain during speech.
+- Leaving the game window silences speech and game sounds, including delayed responses. Returning restores ambient music and lake guidance for the current screen, while keeping mute settings. Old speech and one-shot effects do not replay automatically; delayed text remains available in the caption and with **Replay**.
+- Changing scenes cancels old task, target, transaction, and deferred mining sounds. The sleep recording still continues into the next morning. Failed sound assets can retry on a later action or state update after a one-second cooldown; old effects are not replayed.
+
+Voice models and sample sentences are in `speech_config.json`; authored dialogue is in `npc_config.json`. Run `python tools/prepare_speech.py` to regenerate previews in `output/audio/`, or `python tools/speech_inventory.py` to refresh the source sentence inventory. See [the sound map and model sources](docs/audio/SOUND_MAP.md), [team handoff](docs/audio/TEAM_HANDOFF.md). The prototype models use the dataset license listed in their linked model cards (CC BY NC SA 4.0); Piper is GPL 3.0 or later.
+
+Before a demo, keep the game server running and run `python tools/prepare_demo.py` in a second terminal. It prepares fixed guidance, Rowan tutorial and advice branches and representative action/object/reaction announcements through the speech API, without changing player progress. At the current revision it prepares 203 lines at speed 1.0; other rates, changing quantities and save timestamps may still need first-time generation. The report is `output/audio/demo-ready.json`. See [demo preparation and verification](docs/audio/DEMO_READY.md).
+
+Software checks for this update: `python -m unittest test_team_audio test_speech_queue test_speech_api test_gameplay_audio test_speech test_fishing test_sound_events test_audio_flow test_demo_speech test_startup -v` and `node --test test_speech.cjs test_guidance.cjs test_fishing_audio.cjs test_effects.cjs test_audio_integration.cjs test_hardware.mjs` (147 tests total). `python tools/audio_flow.py` records a farming, cooking, NPC/trading, mining, fishing, save/load sequence in temporary progress. For a separate browser check, run `python tools/audio_integration_lab.py` and open `http://127.0.0.1:8001/`; it starts a temporary watering scene and does not use the normal game's progress. See the [integration report](docs/audio/INTEGRATION_REPORT.md) for coverage and fixture differences.
+
+The user accepted the first voices and gave a positive initial assessment of direction cues and effects balance, requesting slightly quieter speech. The 85% speech level implements that feedback. Detailed direction/listening results, pronunciation, another computer, and a physical Dot Pad still require further checks; follow the [listening checklist](docs/audio/LISTENING_CHECK.md).
+
 ## Controls
 
 | Input | Action |
 |---|---|
 | Hover | Hear an object's name and state |
 | Click | Select, use a facility, or strike a rock |
-| Press and drag | Water, fertilize, harvest, or trace a cooking path |
+| Move over targets or paths | Water, fertilize, harvest, or trace a cooking path |
 | F1 | Open the minimap; press again in that menu to return to the current location |
 | F2 | Open inventory; press again in that menu to return to the current location |
 | F3, short press | Open or close the save list |
 | F3, hold | Save to a new slot after about 0.8 seconds; stay on the current screen after `Game saved.` |
-| F4 | Pause or resume |
+| F4 | Select at the pointer (current evaluation mapping) |
 | Left/right arrow keys or pad buttons | Travel, go back, or turn a page, depending on the screen |
 | W / A / S / D | Move the pointer while the game canvas has focus |
 | Shift + W / A / S / D | Move the pointer in larger steps |
@@ -68,7 +95,7 @@ Locations run from left to right: **Farm ↔ Home ↔ Village ↔ Mine**. Travel
 
 Either arrow closes the minimap, inventory, or load screen and returns to the current location. Going back from buying or selling returns to the shop's buy/sell selection screen. Shop page-turn commands remain separate. Use the on-screen previous/next items to turn inventory pages.
 
-Hand tracking supplies coordinates and press state from an external device. A server that sends coordinates only requires the press button or Space as well. The Dot Pad does not detect touch coordinates itself. Guidance uses English speech; a new announcement interrupts the previous one.
+Hand tracking supplies coordinates and press state from an external device. A server that sends coordinates only requires the press button or F4 for object selection; farming and cooking use movement alone. The Dot Pad does not detect touch coordinates itself. Guidance uses English speech; a new action announcement replaces the previous one, while hover descriptions wait for an action result or dialogue to finish.
 
 ## Locations and activities
 
@@ -139,6 +166,8 @@ The server owns game state and action checks. The browser sends input and receiv
 | `game_engine.py` | Locations and activities, game rules, resources, time, tactile rendering, and announcements |
 | `game_ui.py` | Keypad navigation, temporary menus, tactile frames, and category icons |
 | `game_saves.py` | State serialization, save files, loading, and slot management |
+| `game_npc.py`, `npc_config.json` | Rowan's conversation state, authored lines, and game-state advice |
+| `game_speech.py`, `speech_config.json` | Fixed voice models, pronunciation rules, and cached WAV generation |
 | `dotpad.py` | Dot matrices and drawing primitives |
 | `spectator_state.py` | Public object, plot, rock, path, and quantity data for the companion |
 | `game_config.json` | Rules, starting resources, activity settings, audio, and layout data |
@@ -147,7 +176,8 @@ The server owns game state and action checks. The browser sends input and receiv
 
 | File | Responsibility |
 |---|---|
-| `web/game.html` | Pad simulator, pointer input, status, English TTS, and companion connection |
+| `web/game.html` | Pad simulator, pointer input, status, speech controls, and companion connection |
+| `web/game-speech.js` | Speech playback, replay, cancellation, priority, and audio ducking callbacks |
 | `web/game-keys.js` | Function and arrow keys, F3 short/long press, repeat suppression, and cancellation |
 | `web/hardware.mjs` | Web Serial pad output and physical buttons; WebSocket hand coordinates |
 | `web/game-audio.js` | Separate music, action, reward, and one-shot sound channels |
@@ -178,7 +208,7 @@ Backgrounds, facilities, and objects have separate asset entries so existing ima
 
 Holding F3 saves before the key is released. Releasing it after a save does not open the load screen. A short press opens the slot list.
 
-Saves are JSON files in `saves/`; the latest 12 are retained. They restore progress including items, gold, day, plots, research, and food effects. Save files are excluded from version control. Server memory resets on restart, so save and load to continue a session. USB connections, camera calibration, and browser voice selection are separate from game saves.
+Saves are JSON files in `saves/`; the latest 12 are retained. They restore progress including items, gold, day, plots, research, food effects, and NPC visits. Older saves receive empty NPC state. Save files are excluded from version control. Server memory resets on restart, so save and load to continue a session. USB connections, camera calibration, and speech-control settings are separate from game saves.
 
 ## Audio
 
@@ -192,7 +222,9 @@ Saves are JSON files in `saves/`; the latest 12 are retained. They restore progr
 | `sleep` | Sleep transition |
 | `pickaxe`, `break`, `shine`, `destroy` | Hits, broken rocks, diamonds, and broken items |
 
-Assets use matching MP3 names in `web/audio/`. Reward sounds do not interrupt action sounds. Moving within the same music group does not restart the track. TTS uses an English browser voice and has separate controls from game audio.
+Assets use matching MP3 names in `web/audio/`. Reward sounds do not interrupt action sounds. Moving within the same music group does not restart the track. Speech uses server-generated English audio and has separate controls from game audio.
+
+Recorded action sounds and short outcome cues now share `GameAudio`: target progress, task completion, unavailable actions and fishing misses have distinct feedback. Held work avoids overlapping its tap recording, and TTS cannot revive idle chopping or stirring. Recorded doors, footsteps and coins suppress duplicate synthetic cues. Music is quieter, low-level crop and rare-reward recordings are amplified, and one-shot effects also reduce during speech. Original MP3 files are unchanged. Run `python tools/prepare_effects_preview.py` (requires FFmpeg and Node) for a labelled 37-second mono effects reel in `output/audio/effects-preview.wav`; it does not reproduce live mixing or HRTF.
 
 ## Configuration
 
@@ -257,12 +289,15 @@ Harvest tolerance is fixed at 3.5 in the engine and does not follow `harvest_min
 
 ### Volume and playback
 
-All keys below are under `interaction.audio`. Start with gains between 0 and 1 and check the loudness of the source audio.
+All keys below are under `interaction.audio`. Gains multiply the source level; the quiet crop and shine recordings use gains above 1. Check the source loudness and the combined game mix when adjusting them.
 
 | Key | Setting |
 |---|---|
-| `default_volume` | Master game-audio volume: 0.7 |
-| `bgm_gain.basic`, `minigame`, `shop` | Music gains: 0.9, 0.5, 0.9 |
+| `default_volume` | Master game-audio volume: 0.9 |
+| `bgm_gain.basic`, `minigame`, `shop` | Music gains: 0.30, 0.20, 0.45 |
+| `bgm_during_tts` | Music gain multiplier during speech; defaults to 0.25 |
+| `one_shot_during_tts` | Recorded one-shot and synthetic cue multiplier during speech: 0.65 |
+| `hover_interval_ms` | Minimum interval between hover tones: 220 ms |
 | `work_gain` | Per-action gains for `water`, `soil`, `crop`, `cut`, and `cook` |
 | `work_gain_during_tts` | Action gains during speech |
 | `reward_gain`, `reward_gain_during_tts` | Reward gains normally and during speech |
@@ -286,7 +321,7 @@ User testing will examine game comprehension and enjoyment, the workload of tact
 
 - Improve coordinate calibration, jitter and occlusion handling, and the separation of exploration from action input.
 - Measure and reduce input queues, state-transfer delays, and rendering delays on older laptops.
-- Add fishing, ranching, music, NPC dialogue, quests, and crafting.
+- Expand NPC dialogue and add ranching, music activities, quests, and crafting.
 - Evaluate task completion, time, errors, comprehension, workload, and gesture accuracy with approximately six to eight visually impaired participants.
 
 User testing has not yet been conducted. Physical pad refresh speed, tracking under different lighting and camera positions, occlusion, and speech quality remain part of the planned evaluation. The current design assumes usable hearing and hand control.

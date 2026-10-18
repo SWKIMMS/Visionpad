@@ -1923,18 +1923,18 @@
       },
       "default_volume": 0.9,
       "work_gain": {
-        "water": 0.7,
-        "soil": 0.7,
-        "cut": 0.7,
+        "water": 0.6,
+        "soil": 0.35,
+        "cut": 0.45,
         "cook": 0.7,
-        "crop": 0.8
+        "crop": 1.4
       },
       "work_gain_during_tts": {
-        "water": 0.6,
-        "soil": 0.6,
-        "cut": 0.6,
-        "cook": 0.6,
-        "crop": 0.7
+        "water": 0.4,
+        "soil": 0.25,
+        "cut": 0.3,
+        "cook": 0.55,
+        "crop": 0.8
       },
       "reward_gain": 0.5,
       "reward_gain_during_tts": 0.3,
@@ -1946,9 +1946,9 @@
       "correct_max_load_age_ms": 650,
       "max_reward_sources": 2,
       "bgm_gain": {
-        "basic": 1.0,
-        "minigame": 0.5,
-        "shop": 1.0
+        "basic": 0.3,
+        "minigame": 0.2,
+        "shop": 0.45
       },
       "one_shot_gain": {
         "sleep": 1.0,
@@ -1956,7 +1956,7 @@
         "coin": 0.7,
         "pickaxe": 0.8,
         "break": 0.8,
-        "shine": 0.8,
+        "shine": 3.0,
         "destroy": 0.8,
         "splash": 0.85
       },
@@ -1985,7 +1985,10 @@
         "position_scale": 10,
         "tts_multiplier": 1,
         "bgm_multiplier": 0.2
-      }
+      },
+      "bgm_during_tts": 0.25,
+      "one_shot_during_tts": 0.65,
+      "hover_interval_ms": 220
     },
     "sleep": {
       "blackout_ms": 2000

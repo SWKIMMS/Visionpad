@@ -59,9 +59,9 @@ class FishingMixin:
         if self.day_ended:
             return self.night_only_response()
         if not self.resources.get('fishing_rod'):
-            return self.response(tts='Fishing rod required. Buy at the shop.')
+            return self.response(tts='Fishing rod required. Buy at the shop.', sfx='error')
         if not self.inside_lake(x, y):
-            return self.response(tts='Cast inside the lake.')
+            return self.response(tts='Cast inside the lake.', sfx='error')
         zone = self.fishing_zone(x, y)
         cfg = self.fishing_config()
         weights = self.boost_rare_weights(cfg['zone_weights'][zone], ('high',))
@@ -69,6 +69,7 @@ class FishingMixin:
         self.fishing_attempts += 1
         events = []
         if grade == 'miss':
+            self.record_activity('fishing_miss')
             self.fishing_last_catch = {'id': None, 'label': 'No catch', 'attempt': self.fishing_attempts}
             text = 'No catch. Try another spot.'
         else:
@@ -77,6 +78,7 @@ class FishingMixin:
             label = cfg['fish'][fish_id]['label']
             amount = self.loot_amount(1)
             self.resources['fish'][fish_id] = self.resources['fish'].get(fish_id, 0)+amount
+            self.record_activity('fishing', label, amount)
             self.fishing_last_catch = {'id': fish_id, 'label': label, 'attempt': self.fishing_attempts}
             text = f'{label} {amount} caught.' + (' Bonus.' if amount>1 else '')
             events.append({'kind':'one_shot_group','sounds':['splash','shine'] if grade=='high' else ['splash']})
@@ -94,14 +96,14 @@ class FishingMixin:
         result = self.consume_time('fish')
         self.render()
         if result['night']: return self.night_response(prefix=text, sound_events=events)
-        return self.response(tts=text, sound_events=events)
+        return self.response(tts=text, sound_events=events, sfx='fishing_miss' if grade == 'miss' else None)
 
     def buy_fishing_rod(self):
         if self.resources.get('fishing_rod', 0):
-            return self.response(tts='Only one fishing rod allowed.')
+            return self.response(tts='Only one fishing rod allowed.', sfx='error')
         price = self.market_price(self.get_rod_price(), "fishing_rod", "buy")
         if self.resources['coin'] < price:
-            return self.response(tts=f'Not enough gold. Need {price} gold for Fishing rod.')
+            return self.response(tts=f'Not enough gold. Need {price} gold for Fishing rod.', sfx='error')
         self.resources['coin'] -= price
         self.resources['fishing_rod'] = 1
         self.rod_casts = 0
