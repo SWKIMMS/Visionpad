@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: audio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audio:
     name: ${{ matrix.os }}
@@ -35,7 +39,7 @@ jobs:
         if: runner.os == 'macOS'
         run: printf '\n' | zsh setup-mac.command
       - name: Python checks
-        run: python -c "import subprocess; from tools.setup_game import environment_python; subprocess.run([str(environment_python()), '-m', 'unittest', 'test_team_audio', 'test_speech_queue', 'test_speech_api', 'test_gameplay_audio', 'test_speech', 'test_fishing', 'test_sound_events', 'test_audio_flow', 'test_demo_speech', 'test_startup', 'test_voice_download', '-q'], check=True)"
+        run: python -c "import subprocess; from tools.setup_game import environment_python; subprocess.run([str(environment_python()), '-u', '-c', 'import faulthandler, unittest; faulthandler.dump_traceback_later(60, exit=True); unittest.main(module=None)', 'test_team_audio', 'test_speech_queue', 'test_speech_api', 'test_gameplay_audio', 'test_speech', 'test_fishing', 'test_sound_events', 'test_audio_flow', 'test_demo_speech', 'test_startup', 'test_voice_download', '-v'], check=True)"
       - name: JavaScript checks
         run: node --test test_speech.cjs test_guidance.cjs test_fishing_audio.cjs test_effects.cjs test_audio_integration.cjs test_hardware.mjs test_tracking_input.mjs
       - name: Real audio API
