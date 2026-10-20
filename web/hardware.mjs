@@ -1,3 +1,19 @@
+// Frame-state edges prevent held gestures from producing repeated clicks.
+export class TrackingGestureInput {
+    constructor(input){this.input=input;this.pressed=false;this.ready=false;}
+    reset(){
+        if(this.pressed)this.input.command('release');
+        this.pressed=false;this.ready=false;
+    }
+    update(point,pressed){
+        this.input.move(point[0],point[1]);
+        // After connect/loss, observe an open thumb before permitting a press.
+        if(!this.ready){if(!pressed)this.ready=true;return;}
+        if(pressed&&!this.pressed){this.pressed=true;this.input.press();}
+        else if(!pressed&&this.pressed){this.pressed=false;this.input.release();}
+    }
+}
+
 // Independent adapter for the packet layout in eun022/hand_drawing.
 // Reference commit: 2fdfa07c7f61cdc5a6603c33fc8b643a2b4036fb.
 export function packCells(dots, y, columns) {
@@ -144,6 +160,7 @@ if(typeof document!=='undefined'){
     window.addEventListener('dotdew-state',event=>pad.update(event.detail));
     let socket=null,held=false,valid=false,lastFrame=0;
     const button=document.getElementById('tracking-button'),hold=document.getElementById('tracking-hold'),trackingStatus=document.getElementById('tracking-status');
+    const gestureInput=new TrackingGestureInput(window.DotdewInput);
     function stopHold(){if(held)window.DotdewInput.command('release');held=false;hold.textContent='Press';hold.setAttribute('aria-pressed','false');}
     hold.addEventListener('click',()=>{
         if(!valid){trackingStatus.textContent='Waiting for valid hand coordinates.';return;}
@@ -158,18 +175,28 @@ if(typeof document!=='undefined'){
             socket.onopen=()=>{button.disabled=false;button.textContent='Disconnect hand tracking';trackingStatus.textContent='Connected · Waiting for hand coordinates';};
             socket.onmessage=event=>{
                 try{
-                    const data=JSON.parse(event.data);if(data.type!=='frame')return;
-                    const pt=data.scaled_tip;
-                    valid=data.hand_detected&&Array.isArray(pt)&&pt.length===2&&pt.every(Number.isFinite)&&pt[0]>=0&&pt[0]<60&&pt[1]>=0&&pt[1]<40;
+                    const data=JSON.parse(event.data);
+                    if(!['tracking','frame'].includes(data.type))return;
+                    const pt=data.type==='tracking' ? (data.pad ? [data.pad.x,data.pad.y] : null) : data.scaled_tip;
+                    valid=!!data.hand_detected && data.pad_detected!==false && data.tracking_quality!=='lost'
+                        && Array.isArray(pt)&&pt.length===2&&pt.every(Number.isFinite)&&pt[0]>=0&&pt[0]<60&&pt[1]>=0&&pt[1]<40;
                     hold.disabled=!valid;lastFrame=Date.now();
-                    if(!valid){stopHold();trackingStatus.textContent='No hand detected';return;}
-                    window.DotdewInput.move(pt[0],pt[1]);
-                    trackingStatus.textContent=`Hand coordinates ${pt[0]}, ${pt[1]} · ${held?'Pressed':'Exploring'}`;
-                }catch{trackingStatus.textContent='Invalid hand-coordinate message';}
+                    if(!valid){gestureInput.reset();stopHold();trackingStatus.textContent='No valid hand coordinates';return;}
+                    const automatic=['hover','pressed'].includes(data.gesture);
+                    if(automatic){
+                        hold.disabled=true;
+                        if(held)stopHold();
+                        gestureInput.update(pt,data.gesture==='pressed');
+                    } else {
+                        gestureInput.reset();
+                        window.DotdewInput.move(pt[0],pt[1]);
+                    }
+                    trackingStatus.textContent=`Hand coordinates ${pt[0].toFixed(1)}, ${pt[1].toFixed(1)} · ${automatic?(data.gesture==='pressed'?'Thumb folded · Pressed':data.armed===false?'Open thumb to enable clicking':'Exploring'):held?'Pressed':'Exploring'}`;
+                }catch{gestureInput.reset();stopHold();valid=false;hold.disabled=true;trackingStatus.textContent='Invalid hand-coordinate message';}
             };
             socket.onerror=()=>{trackingStatus.textContent='Could not connect to the hand-tracking server';};
-            socket.onclose=()=>{stopHold();valid=false;hold.disabled=true;socket=null;button.disabled=false;button.textContent='Connect hand tracking';trackingStatus.textContent='Disconnected';};
+            socket.onclose=()=>{gestureInput.reset();stopHold();valid=false;hold.disabled=true;socket=null;button.disabled=false;button.textContent='Connect hand tracking';trackingStatus.textContent='Disconnected';};
         }catch(error){socket=null;button.disabled=false;trackingStatus.textContent=error.message;}
     });
-    setInterval(()=>{if(valid&&Date.now()-lastFrame>1500){valid=false;hold.disabled=true;stopHold();trackingStatus.textContent='Hand tracking timed out';}},500);
+    setInterval(()=>{if(valid&&Date.now()-lastFrame>1500){valid=false;hold.disabled=true;gestureInput.reset();stopHold();trackingStatus.textContent='Hand tracking timed out';}},500);
 }

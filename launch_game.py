@@ -1,12 +1,17 @@
 """Start a checked local game, or reuse an existing game without resetting it."""
 import argparse
 import json
+import socket
 from pathlib import Path
 import subprocess
 import sys
 import time
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.error import URLError
+from urllib.parse import urlsplit
+from urllib.request import build_opener, ProxyHandler
+
+# Loopback readiness checks must not use system or environment proxies.
+urlopen = build_opener(ProxyHandler({})).open
 import webbrowser
 
 from tools.check_setup import check_setup, show_report
@@ -14,18 +19,44 @@ from tools.check_setup import check_setup, show_report
 ROOT = Path(__file__).resolve().parent
 
 
+def port_is_available(url):
+    """Check local binding independently of HTTP timeout/refusal behavior."""
+    address = urlsplit(url)
+    if address.hostname != "127.0.0.1":
+        raise ValueError("The launcher only probes IPv4 loopback.")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        # Do not allow Windows to share a port with an existing listener.
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        probe.bind((address.hostname, address.port))
+    return True
+
+
 def server_status(url):
     try:
         with urlopen(url + "/openapi.json", timeout=1) as response:
             schema = json.load(response)
         expected = {"/api/state", "/api/speech", "/api/speech/voices"}
-        return "game" if schema.get("info", {}).get("title") == "Dotdew Valley" and expected <= schema.get("paths", {}).keys() else "other"
-    except HTTPError:
+        if (isinstance(schema, dict)
+                and isinstance(schema.get("info"), dict)
+                and isinstance(schema.get("paths"), dict)
+                and schema["info"].get("title") == "Dotdew Valley"
+                and expected <= schema["paths"].keys()):
+            return "game"
+        server_status.detail = "HTTP server responded, but its API is not the expected game API."
         return "other"
-    except URLError as error:
-        return "free" if isinstance(error.reason, ConnectionRefusedError) else "other"
-    except (OSError, ValueError):
-        return "other"
+    except (URLError, OSError, ValueError) as error:
+        # Windows may time out before returning connection-refused. A timeout
+        # alone says nothing about whether Uvicorn can bind this port.
+        try:
+            port_is_available(url)
+        except OSError as bind_error:
+            server_status.detail = f"HTTP probe: {error!r}; local bind: {bind_error!r}"
+            return "other"
+        return "free"
+
+
+server_status.detail = "No diagnostic available."
 
 
 def wait_for_server(process, url, timeout=20):
@@ -72,7 +103,7 @@ def main(argv=None):
     try:
         status = server_status(url)
         if status == "other":
-            raise RuntimeError(f"Port {args.port} is busy or is not a ready Dotdew Valley server. It has been left untouched. Use another port or close that program yourself.")
+            raise RuntimeError(f"Port {args.port} is busy or is not a ready Dotdew Valley server. It has been left untouched. Use another port or close that program yourself.\nDetails: {server_status.detail}")
         if status == "game":
             print(f"Game is already running. Reusing {url} without restarting it.", flush=True)
         else:
