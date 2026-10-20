@@ -84,7 +84,9 @@ class SpeechQueue:
                     job.future.set_result(result)
             except Exception as error:
                 if not job.future.done():
-                    job.future.set_exception(error)
+                    # A consumer may clear exception frames while this worker
+                    # is suspended. Do not expose the live worker's traceback.
+                    job.future.set_exception(error.with_traceback(None))
             finally:
                 self.current = None
 

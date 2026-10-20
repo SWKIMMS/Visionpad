@@ -5,7 +5,12 @@ set "PYTHONUTF8=1"
 cd /d "%~dp0"
 where py > nul 2>&1
 if not errorlevel 1 (
-    py -3 tools\setup_game.py
+    py -3.12 -c "import sys" > nul 2>&1
+    if not errorlevel 1 (
+        py -3.12 tools\setup_game.py
+    ) else (
+        py -3 tools\setup_game.py
+    )
 ) else (
     where python > nul 2>&1
     if errorlevel 1 (

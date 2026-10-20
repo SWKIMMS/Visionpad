@@ -92,7 +92,21 @@ class QueueTests(unittest.IsolatedAsyncioTestCase):
         good = self.queue.submit("good")
         with self.assertRaises(ValueError):
             await bad.future
-        self.assertEqual((await good.future)["text"], "good")
+        self.assertEqual((await asyncio.wait_for(good.future, 1))["text"], "good")
+
+    async def test_failed_request_does_not_expose_the_live_worker_frame(self):
+        bad = self.queue.submit("bad")
+        try:
+            await bad.future
+        except ValueError as error:
+            frame = error.__traceback__
+            while frame is not None:
+                self.assertIsNot(frame.tb_frame.f_code, SpeechQueue.run.__code__)
+                frame = frame.tb_next
+        else:
+            self.fail("Expected synthesis failure")
+        good = self.queue.submit("good")
+        self.assertEqual((await asyncio.wait_for(good.future, 1))["text"], "good")
 
     async def test_queue_capacity_is_bounded(self):
         await self.blocked()
