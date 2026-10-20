@@ -1,0 +1,935 @@
+{
+  "scope": "Speech literals and templates; variable-only expressions and browser-authored messages are not expanded.",
+  "entries": [
+    {
+      "source": "game_app.py",
+      "line": 156,
+      "kind": "fixed",
+      "text": "New game. Home."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 379,
+      "kind": "fixed",
+      "text": "Night. Home now. Select the bed."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 381,
+      "kind": "dynamic",
+      "text": "f\"{prefix}. {narration}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 394,
+      "kind": "fixed",
+      "text": "Sleeping."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 429,
+      "kind": "dynamic",
+      "text": "f\"Day {self.day}. Morning.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 612,
+      "kind": "dynamic",
+      "text": "f\"{plot_label}. Empty plot.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 620,
+      "kind": "fixed",
+      "text": "Plant. Choose seeds."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 653,
+      "kind": "dynamic",
+      "text": "f\"Growth. {seed_label}. {needed if state['mature'] else state['growth']} of {needed} days\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 663,
+      "kind": "dynamic",
+      "text": "f\"Harvest. {seed_label}. Ready to harvest.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 714,
+      "kind": "dynamic",
+      "text": "f\" {seed_label} plot. Move to apply {mode_label}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 726,
+      "kind": "dynamic",
+      "text": "f\"{mode_label} target. Move.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 752,
+      "kind": "dynamic",
+      "text": "f\"{seed_config.get('label', seed_id)} seeds {count}. Growth {growth_days} days, Harvest {yield_count}, Seed recovery level {self.research_levels.get('seed_return', 0)}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 880,
+      "kind": "fixed",
+      "text": "Path"
+    },
+    {
+      "source": "game_engine.py",
+      "line": 977,
+      "kind": "dynamic",
+      "text": "f\"Move over crops.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 986,
+      "kind": "dynamic",
+      "text": "f\"Harvest {seed_label}. Move.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1001,
+      "kind": "dynamic",
+      "text": "f\"{recipe.get('label', recipe_id)}. {ingredient_text}. {self.recipe_effect_text(recipe)}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1025,
+      "kind": "dynamic",
+      "text": "f\"{label}. Need {needed}, stock {count}. {status}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1040,
+      "kind": "fixed",
+      "text": "Sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1045,
+      "kind": "fixed",
+      "text": "Buy."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1048,
+      "kind": "fixed",
+      "text": "Calendar. Weekly offers."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1077,
+      "kind": "dynamic",
+      "text": "f\"{label}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1463,
+      "kind": "fixed",
+      "text": "Bed. Sleep until morning."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1465,
+      "kind": "fixed",
+      "text": "Research. Choose an upgrade."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1468,
+      "kind": "dynamic",
+      "text": "f\"Kitchen. Available recipes: {count} \""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1470,
+      "kind": "fixed",
+      "text": "Shop. Buy or sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1479,
+      "kind": "fixed",
+      "text": "Fertilized"
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1585,
+      "kind": "dynamic",
+      "text": "f\"{mode_label}. Move over targets.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1594,
+      "kind": "fixed",
+      "text": "Harvest. Move over crops."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1610,
+      "kind": "fixed",
+      "text": "Watering can. Drag to a plot."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1615,
+      "kind": "fixed",
+      "text": "No fertilizer."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1616,
+      "kind": "dynamic",
+      "text": "f\"Fertilizer. Stock: {count}. Drag to a watered plot.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1798,
+      "kind": "fixed",
+      "text": "Night. Select the bed."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1804,
+      "kind": "fixed",
+      "text": "Location unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1831,
+      "kind": "fixed",
+      "text": "Village. Rowan would like to meet you. Select Rowan beside the shop to hear more."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1832,
+      "kind": "dynamic",
+      "text": "f\"{name}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1844,
+      "kind": "fixed",
+      "text": "Map. Select a place."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1857,
+      "kind": "dynamic",
+      "text": "f\"Inventory. {self.resources['coin']} gold. {self.buff_text()}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1865,
+      "kind": "fixed",
+      "text": "Research."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1869,
+      "kind": "fixed",
+      "text": "Resume first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1877,
+      "kind": "fixed",
+      "text": "Resume first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1878,
+      "kind": "fixed",
+      "text": "Sleeping. Please wait."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1895,
+      "kind": "dynamic",
+      "text": "f\"{self.get_page_name(self.current_location)}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1916,
+      "kind": "fixed",
+      "text": "Plot unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1931,
+      "kind": "fixed",
+      "text": "Plant seeds first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1933,
+      "kind": "fixed",
+      "text": "Crop ready. Harvest now."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1935,
+      "kind": "fixed",
+      "text": "Already watered."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1938,
+      "kind": "fixed",
+      "text": "Water first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1940,
+      "kind": "fixed",
+      "text": "Already fertilized."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1942,
+      "kind": "fixed",
+      "text": "No fertilizer. Buy at the shop."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 1962,
+      "kind": "dynamic",
+      "text": "f\"{mode_label}. Move over targets.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2004,
+      "kind": "dynamic",
+      "text": "f\"{mode_label} {percent} percent. Continue over remaining targets.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2015,
+      "kind": "dynamic",
+      "text": "f\"Watered. Sleep to grow crops.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2023,
+      "kind": "fixed",
+      "text": "No fertilizer. Buy at the shop."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2027,
+      "kind": "dynamic",
+      "text": "f\"Fertilized. {fertilizer_text}.  fertilizer {self.resources['fertilizer']} remaining\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2045,
+      "kind": "fixed",
+      "text": "Plot unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2047,
+      "kind": "fixed",
+      "text": "Plot occupied."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2050,
+      "kind": "fixed",
+      "text": "No seeds. Buy at the shop."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2061,
+      "kind": "fixed",
+      "text": "Cannot plant here."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2063,
+      "kind": "fixed",
+      "text": "Plot occupied."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2066,
+      "kind": "fixed",
+      "text": "No seeds of this type."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2079,
+      "kind": "dynamic",
+      "text": "f\"{self.get_seed_label(seed_id)} planted. Water, then sleep.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2087,
+      "kind": "dynamic",
+      "text": "f\"{label} is empty. Plant seeds first.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2089,
+      "kind": "dynamic",
+      "text": "f\"{label} is ready to harvest.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2091,
+      "kind": "dynamic",
+      "text": "f\"{label} Already watered.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2097,
+      "kind": "dynamic",
+      "text": "f\"{label} watered. {self.get_seed_label(state['seed_id'])} will grow after sleep.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2118,
+      "kind": "dynamic",
+      "text": "f\"{label} is empty. Plant first.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2120,
+      "kind": "dynamic",
+      "text": "f\"{label} is ready to harvest.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2122,
+      "kind": "dynamic",
+      "text": "f\"{label} needs water first.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2124,
+      "kind": "dynamic",
+      "text": "f\"{label} is already fertilized.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2127,
+      "kind": "fixed",
+      "text": "No fertilizer. Buy at the shop."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2134,
+      "kind": "dynamic",
+      "text": "f\"{label} fertilized. {fertilizer_text}.  fertilizer {self.resources.get('fertilizer', 0)} remaining\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2152,
+      "kind": "fixed",
+      "text": "Seed recovery at maximum level."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2156,
+      "kind": "dynamic",
+      "text": "f\"Copper {copper_cost} required\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2158,
+      "kind": "dynamic",
+      "text": "f\"Not enough gold. Need {cost}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2163,
+      "kind": "dynamic",
+      "text": "f\"Seed recovery level {level + 1}. Gold spent: {cost}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2175,
+      "kind": "fixed",
+      "text": "All plots unlocked."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2180,
+      "kind": "dynamic",
+      "text": "f\"Stone {material_cost} required\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2182,
+      "kind": "dynamic",
+      "text": "f\"Not enough gold. Need {cost}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2187,
+      "kind": "dynamic",
+      "text": "f\"Farm expanded. Plots: {self.unlocked_plot_count}. Gold spent: {cost}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2197,
+      "kind": "fixed",
+      "text": "Crop not ready."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2210,
+      "kind": "dynamic",
+      "text": "f\"{self.get_seed_label(state['seed_id'])} harvest. Collect all crops.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2238,
+      "kind": "dynamic",
+      "text": "f\"Harvest {collected}/{total}. Collect remaining crops.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2264,
+      "kind": "dynamic",
+      "text": "f\"Harvested. {seed_label} {yield_count}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2289,
+      "kind": "fixed",
+      "text": "No recipes available. Gather ingredients."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2291,
+      "kind": "dynamic",
+      "text": "f\"Choose a recipe.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2295,
+      "kind": "fixed",
+      "text": "Not enough ingredients."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2301,
+      "kind": "dynamic",
+      "text": "f\"{self.get_recipe_label(recipe_id)}. {self.recipe_ingredient_text(recipe_id)}. Select all ingredients to start cooking.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2309,
+      "kind": "fixed",
+      "text": "Ingredient not required."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2312,
+      "kind": "dynamic",
+      "text": "f\"{self.get_seed_label(seed_id)} deselected.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2317,
+      "kind": "dynamic",
+      "text": "f\"{label} selected.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2394,
+      "kind": "fixed",
+      "text": "Choose a recipe first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2397,
+      "kind": "fixed",
+      "text": "Choose one fish first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2399,
+      "kind": "fixed",
+      "text": "Select all ingredients first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2401,
+      "kind": "fixed",
+      "text": "Not enough ingredients."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2413,
+      "kind": "dynamic",
+      "text": "f\"{self.get_recipe_label(self.selected_recipe_id)}. {self.cooking_step_text()}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2431,
+      "kind": "fixed",
+      "text": "Cooking path unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2438,
+      "kind": "fixed",
+      "text": "Move to the filled square to continue."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2483,
+      "kind": "dynamic",
+      "text": "f\"Progress {percent} percent.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2494,
+      "kind": "fixed",
+      "text": "Not enough ingredients."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2516,
+      "kind": "fixed",
+      "text": "No food available."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2529,
+      "kind": "dynamic",
+      "text": "f\"{self.get_recipe_label(recipe_id)} used. {self.buff_text()}\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2539,
+      "kind": "fixed",
+      "text": "Shop. Sell, buy, check the calendar, or ask Rowan for advice."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2546,
+      "kind": "fixed",
+      "text": "Shop. Sell, buy, check the calendar, or ask Rowan for advice."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2552,
+      "kind": "fixed",
+      "text": "Sell items."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2555,
+      "kind": "fixed",
+      "text": "Buy items."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2568,
+      "kind": "fixed",
+      "text": "Seed not sold here."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2575,
+      "kind": "fixed",
+      "text": "Item unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2578,
+      "kind": "dynamic",
+      "text": "f\"Not enough gold. {label} costs {price} gold.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2588,
+      "kind": "dynamic",
+      "text": "f\"{label} bought. Gold left: {self.resources['coin']} gold\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2593,
+      "kind": "fixed",
+      "text": "No fish to sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2599,
+      "kind": "fixed",
+      "text": "No mineral to sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2605,
+      "kind": "fixed",
+      "text": "No crop to sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2612,
+      "kind": "fixed",
+      "text": "No food to sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2617,
+      "kind": "fixed",
+      "text": "Cannot sell this item."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2623,
+      "kind": "dynamic",
+      "text": "f\"{label} sold. Gold left: {self.resources['coin']} gold\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2649,
+      "kind": "fixed",
+      "text": "Move to an item first."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2859,
+      "kind": "fixed",
+      "text": "Pickaxe required. Buy at the shop."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2864,
+      "kind": "fixed",
+      "text": ""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2919,
+      "kind": "fixed",
+      "text": "Pickaxe owned. Limit one."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2930,
+      "kind": "fixed",
+      "text": "Nothing to sell."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2936,
+      "kind": "fixed",
+      "text": "Only one pickaxe allowed."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2941,
+      "kind": "fixed",
+      "text": "Item unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2944,
+      "kind": "dynamic",
+      "text": "f\"Not enough gold. Need {price} gold for {label}.\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2953,
+      "kind": "dynamic",
+      "text": "f\"{label} bought. Gold left: {self.resources['coin']} gold\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2957,
+      "kind": "fixed",
+      "text": "Research unavailable."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2962,
+      "kind": "fixed",
+      "text": "Maximum research level."
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2967,
+      "kind": "dynamic",
+      "text": "f\"Not enough materials. Need {cost} gold, {self.MINERAL_LABELS[mineral]} {material_cost} required\""
+    },
+    {
+      "source": "game_engine.py",
+      "line": 2971,
+      "kind": "dynamic",
+      "text": "f\"Mineral discovery level {level + 1} complete.\""
+    },
+    {
+      "source": "game_fishing.py",
+      "line": 62,
+      "kind": "fixed",
+      "text": "Fishing rod required. Buy at the shop."
+    },
+    {
+      "source": "game_fishing.py",
+      "line": 64,
+      "kind": "fixed",
+      "text": "Cast inside the lake."
+    },
+    {
+      "source": "game_fishing.py",
+      "line": 74,
+      "kind": "fixed",
+      "text": "No catch. Try another spot."
+    },
+    {
+      "source": "game_fishing.py",
+      "line": 103,
+      "kind": "fixed",
+      "text": "Only one fishing rod allowed."
+    },
+    {
+      "source": "game_fishing.py",
+      "line": 106,
+      "kind": "dynamic",
+      "text": "f'Not enough gold. Need {price} gold for Fishing rod.'"
+    },
+    {
+      "source": "game_fishing.py",
+      "line": 113,
+      "kind": "dynamic",
+      "text": "f\"Fishing rod bought. Gold left: {self.resources['coin']} gold\""
+    },
+    {
+      "source": "game_npc.py",
+      "line": 57,
+      "kind": "fixed",
+      "text": "Ask Rowan for farming or fishing advice."
+    },
+    {
+      "source": "game_npc.py",
+      "line": 86,
+      "kind": "dynamic",
+      "text": "f\"{npc['name']}. {npc['goodbye']}\""
+    },
+    {
+      "source": "game_npc.py",
+      "line": 109,
+      "kind": "dynamic",
+      "text": "f\"{npc['name']}. {text}\""
+    },
+    {
+      "source": "game_saves.py",
+      "line": 138,
+      "kind": "fixed",
+      "text": "Could not save the game."
+    },
+    {
+      "source": "game_saves.py",
+      "line": 145,
+      "kind": "fixed",
+      "text": "Game saved."
+    },
+    {
+      "source": "game_saves.py",
+      "line": 167,
+      "kind": "fixed",
+      "text": "Save unavailable."
+    },
+    {
+      "source": "game_saves.py",
+      "line": 173,
+      "kind": "fixed",
+      "text": "Could not load this save."
+    },
+    {
+      "source": "game_saves.py",
+      "line": 174,
+      "kind": "dynamic",
+      "text": "f\"Game loaded. Day {self.day}. {self.get_page_name(self.current_page)}.\""
+    },
+    {
+      "source": "game_saves.py",
+      "line": 181,
+      "kind": "dynamic",
+      "text": "f\"Save {i+1}. Day {slot['day']}. {slot['created'][:16].replace('T', ' ')} UTC.\""
+    },
+    {
+      "source": "game_seafood.py",
+      "line": 40,
+      "kind": "dynamic",
+      "text": "f\"{fish['label']}. Stock {count}. {'Selected.' if selected else 'Choose one fish.'}\""
+    },
+    {
+      "source": "game_seafood.py",
+      "line": 47,
+      "kind": "fixed",
+      "text": "Fish unavailable."
+    },
+    {
+      "source": "game_seafood.py",
+      "line": 60,
+      "kind": "fixed",
+      "text": "Not enough ingredients."
+    },
+    {
+      "source": "game_ui.py",
+      "line": 15,
+      "kind": "fixed",
+      "text": "Sleeping. Please wait."
+    },
+    {
+      "source": "game_ui.py",
+      "line": 16,
+      "kind": "fixed",
+      "text": "Resume first."
+    },
+    {
+      "source": "game_ui.py",
+      "line": 39,
+      "kind": "fixed",
+      "text": "Resume first."
+    },
+    {
+      "source": "game_ui.py",
+      "line": 40,
+      "kind": "fixed",
+      "text": "Sleeping. Please wait."
+    },
+    {
+      "source": "game_ui.py",
+      "line": 44,
+      "kind": "dynamic",
+      "text": "f'Cannot go {direction}.'"
+    },
+    {
+      "source": "game_village.py",
+      "line": 63,
+      "kind": "dynamic",
+      "text": "f'Rowan. {text}'"
+    },
+    {
+      "source": "game_village.py",
+      "line": 68,
+      "kind": "fixed",
+      "text": "Rowan is in the village."
+    },
+    {
+      "source": "game_village.py",
+      "line": 98,
+      "kind": "dynamic",
+      "text": "f\"{self.get_seed_label(key)}. Stock {count}. Give one to Rowan.\""
+    },
+    {
+      "source": "game_village.py",
+      "line": 105,
+      "kind": "fixed",
+      "text": "No vegetable to give."
+    }
+  ]
+}

@@ -24,7 +24,7 @@ class KeypadUI:
         if page == 'inventory': self.inventory_page = 0
         self.clear_hover()
         self.render()
-        return self.response(tts='Map. Select a place.' if page == 'minimap' else f'Inventory. {self.resources["coin"]} gold.')
+        return self.response(tts='Map. Select a place.' if page == 'minimap' else f'Inventory. {self.resources["coin"]} gold.', sfx='open_page')
 
     def key_arrows(self, direction):
         all_arrows = [o for o in self.get_layout_objects() if o.get('type') == 'arrow']

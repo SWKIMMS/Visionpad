@@ -64,6 +64,7 @@ class SeafoodMixin:
         self.resources['fish'][fish]-=recipe.get('fish_required',1)
         amount=self.loot_amount(1)
         self.resources['foods'][rid]=self.resources['foods'].get(rid,0)+amount
+        self.record_activity('cooking', self.get_recipe_config(rid)['label'], amount)
         text=f"{self.get_recipe_config(rid)['label']} {amount} made."+(' Bonus.' if amount>1 else '')
         self.clear_cooking();self.clear_hover();self.current_page=self.current_location='home'
         result=self.consume_time('cook');self.render()

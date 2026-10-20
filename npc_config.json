@@ -1,0 +1,32 @@
+{
+  "shopkeeper": {
+    "name": "Rowan",
+    "role": "shopkeeper",
+    "voice_profile": "shopkeeper",
+    "greeting": "Welcome to the village. I am Rowan, the shopkeeper. We can talk about farming or fishing, or you can open the shop.",
+    "return_greeting": "Good to see you again. What would you like to talk about today?",
+    "goodbye": "See you around the village. Take your time and enjoy your day.",
+    "reactions": {
+      "first_harvest": "Your first harvest! You can sell your {item} here or use it in the kitchen.",
+      "harvest": "Your {item} harvest is in. Keep some for cooking, or sell it here.",
+      "first_cooking": "You made your first dish, {item}. Open your inventory when you want to use it.",
+      "cooking": "You made {item}. Check its effect in your inventory before using it.",
+      "first_fishing": "Your first catch! You can sell your {item} here or keep it for a recipe.",
+      "fishing": "You caught {item}. You can sell fish here or keep them for cooking.",
+      "fishing_miss": "No catch this time. Follow the water sound and try another spot when you are ready.",
+      "tool_broken": "Your {item} broke. Open the shop to buy a replacement before trying again.",
+      "first_mining": "Your first mineral, {item}! You can sell minerals or keep them for research.",
+      "mining": "You collected {item}. Check the research costs before selling your minerals."
+    },
+    "farming": {
+      "empty": "Start by planting a seed in an empty plot. Water your crops, then sleep to help them grow.",
+      "needs_water": "Some of your crops still need water. Water them before you sleep so they can grow.",
+      "ready": "You have crops ready to harvest. You can sell them here or use them in your kitchen.",
+      "growing": "Your crops have water. Let them rest overnight, then check their growth tomorrow."
+    },
+    "fishing": {
+      "without_rod": "You will need a fishing rod from the shop. At the lake, follow the water sound to find a fishing spot.",
+      "with_rod": "You have a fishing rod. At the lake, move toward the water sound, then tap to cast. You can sell your catch here."
+    }
+  }
+}
