@@ -37,14 +37,7 @@
   "gesture": {
     "press_ratio": 0.35,
     "release_ratio": 0.55,
-    "stable_frames": 3,
-    "mode": "thumb_fold",
-    "thumb_fold": {
-      "press_angle_deg": 150,
-      "release_angle_deg": 165,
-      "press_palm_ratio": 0.65,
-      "release_palm_ratio": 0.85
-    }
+    "stable_frames": 3
   },
   "smoothing": {
     "alpha": 0.35

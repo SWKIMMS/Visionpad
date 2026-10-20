@@ -1,30 +1,43 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {SerialPad,forwardKey,extractPackets,displayPacket,packCells} from './web/hardware.mjs';
+import {BluetoothPad,forwardKey,packCells,cellsToHex} from './web/hardware.mjs';
+import {DataCodes,DotPadKey} from './web/vendor/DotPadSDK-3.0.3.js';
 const require=createRequire(import.meta.url);
 const {GameKeys}=require('./web/game-keys.js');
-function packet(mask){const body=[0,3,0x32,0,mask<<4];let check=0xa5;for(const v of body)check^=v;return [0xaa,0x55,0,6,...body,check]}
-function setup(){
- const commands=[],timers=new Map();let now=0,id=0;
+Object.defineProperty(globalThis,'navigator',{value:{bluetooth:{}},configurable:true});
+
+// Stand-ins for the SDK objects: callbacks are captured so tests can play pad events.
+function fakeBle(){const listeners=new Set();return {name:'DotPad320A',gatt:{connected:true,disconnect(){}},addEventListener:(_,f)=>listeners.add(f),removeEventListener:(_,f)=>listeners.delete(f),drop(){this.gatt.connected=false;for(const f of listeners)f()}}}
+function fakeSdk(size={rows:10,columns:30,text:20}){
+ const sdk={output:[],device:{isConnect:true,numberCellRows:size.rows,numberCellColumns:size.columns,numberBrailleCellColumns:size.text,disconnect:async()=>{sdk.device.isConnect=false;sdk.message(sdk.device,DataCodes.Disconnected,'')}},
+  setCallBack(m,k,down,up){Object.assign(sdk,{message:m,down,up})},
+  connectBleDevice:async()=>sdk.device,
+  displayTextData:(hex,_,mode)=>sdk.output.push(['text',hex,mode]),
+  displayGraphicData:(hex,_,mode)=>sdk.output.push(['graphic',hex,mode])};
+ return sdk;
+}
+async function setup(size){
+ const commands=[],timers=new Map(),statuses=[];let now=0,id=0;
  const keys=new GameKeys(c=>commands.push(c),{now:()=>now,schedule:fn=>{timers.set(++id,fn);return id},unschedule:i=>timers.delete(i)});
  const input={keyDown:k=>keys.down(k),keyUp:k=>keys.up(k),command:(k,phase)=>keys.up(k,phase==='cancel')};
- const pad=new SerialPad(()=>{},(k,phase)=>forwardKey(input,k,phase));
- return {pad,commands,receive:mask=>{for(const p of extractPackets(packet(mask)).packets)pad.handleKeyPacket(p)},advance:ms=>{now+=ms;for(const f of [...timers.values()])f()}};
+ const sdk=fakeSdk(size),ble=fakeBle();
+ const pad=new BluetoothPad(s=>statuses.push(s),(k,phase)=>forwardKey(input,k,phase),{sdk,scanner:{startBleScan:async()=>ble}});
+ await pad.connect();
+ const press=key=>sdk.down(sdk.device,key,''),release=key=>sdk.up(sdk.device,key,'');
+ return {pad,sdk,ble,commands,statuses,press,release,advance:ms=>{now+=ms;for(const f of [...timers.values()])f()}};
 }
-test('F3 release produces one load command',()=>{const s=setup();s.receive(2);s.receive(0);assert.deepEqual(s.commands,['load'])});
-test('holding F3 saves once, without a load on release',()=>{const s=setup();s.receive(2);s.receive(2);s.advance(900);s.receive(0);assert.deepEqual(s.commands,['save'])});
-test('disconnect cancels an unfinished hold',async()=>{const s=setup();s.receive(2);await s.pad.disconnect();s.advance(1000);assert.deepEqual(s.commands,[])});
-test('F1 F2 F4 use the current key mapping',()=>{const s=setup();for(const m of [8,4,1]){s.receive(m);s.receive(0)}assert.deepEqual(s.commands,['minimap','resources','click'])});
-test('held status repeats never toggle menus repeatedly',()=>{const s=setup();s.receive(4);s.receive(4);s.receive(4);s.receive(0);assert.deepEqual(s.commands,['resources'])});
-test('simultaneous F2 and F3 releases preserve both edges',()=>{const s=setup();s.receive(6);s.receive(2);s.receive(0);assert.deepEqual(s.commands,['resources','load'])});
-test('reconnection can press the same key again',async()=>{const s=setup();s.receive(2);await s.pad.disconnect();s.receive(2);s.receive(0);assert.deepEqual(s.commands,['load'])});
-test('split serial packets retain their key mask',()=>{const p=packet(2),a=extractPackets(p.slice(0,7));assert.equal(a.packets.length,0);const b=extractPackets([...a.rest,...p.slice(7)]);assert.deepEqual(b.packets,[p]);assert.deepEqual(b.rest,[])});
-test('corrupt key reports and other commands do not trigger input',()=>{const s=setup(),p=packet(2);p[p.length-1]^=1;assert.equal(extractPackets(p).packets.length,0);s.pad.handleKeyPacket([0,0,0,0,0,2,1,0,0,0]);assert.deepEqual(s.commands,[])});
-test('display packing and output checksums retain their format',()=>{const cells=packCells([[1,0],[0,1],[1,0],[0,1]],0,1);assert.equal(cells[0],0xa5);const p=displayPacket(0,cells);assert.equal(extractPackets(p).packets.length,1)});
-function panPacket(mask){const body=[0,3,0x12,0,0,mask];let check=0xa5;for(const b of body)check^=b;return [0xaa,0x55,0,7,...body,check]}
-test('left and right Perkins reports map to navigation',()=>{const s=setup();for(const mask of [4,0,2,0])s.pad.handleKeyPacket(extractPackets(panPacket(mask)).packets[0]);assert.deepEqual(s.commands,['left','right'])});
-test('pan held status does not repeat travel',()=>{const s=setup();for(const mask of [4,4,4,0])s.pad.handleKeyPacket(panPacket(mask));assert.deepEqual(s.commands,['left'])});
-test('pan release does not release a held F3',()=>{const s=setup();s.receive(2);s.pad.handleKeyPacket(panPacket(4));s.pad.handleKeyPacket(panPacket(0));s.advance(800);assert.deepEqual(s.commands,['left','save']);s.receive(0);assert.deepEqual(s.commands,['left','save'])});
-test('save fires at threshold before release; release sends no second command',()=>{const s=setup();s.receive(2);assert.deepEqual(s.commands,[]);s.advance(800);assert.deepEqual(s.commands,['save']);assert.equal(s.pad.mask,2);s.receive(0);assert.deepEqual(s.commands,['save'])});
-test('unrelated Perkins bits are ignored',()=>{const s=setup();s.pad.handleKeyPacket(panPacket(0x80));assert.deepEqual(s.commands,[])});
+const frame=(on=false)=>({width:60,height:40,time_width:40,time_height:4,dots:Array.from({length:40},()=>Array(60).fill(on?1:0)),time_dots:Array.from({length:4},()=>Array(40).fill(0))});
+
+test('F3 release produces one load command',async()=>{const s=await setup();s.press(DotPadKey.KeyFunction3);s.release(DotPadKey.KeyFunction3);assert.deepEqual(s.commands,['load'])});
+test('holding F3 saves once, without a load on release',async()=>{const s=await setup();s.press(DotPadKey.KeyFunction3);s.advance(900);s.release(DotPadKey.KeyFunction3);assert.deepEqual(s.commands,['save'])});
+test('disconnect cancels an unfinished hold',async()=>{const s=await setup();s.press(DotPadKey.KeyFunction3);await s.pad.disconnect();s.advance(1000);assert.deepEqual(s.commands,[]);assert.equal(s.pad.connected,false)});
+test('F1 F2 F4 and panning use the current key mapping',async()=>{const s=await setup();for(const k of [DotPadKey.KeyFunction1,DotPadKey.KeyFunction2,DotPadKey.KeyFunction4,DotPadKey.PanningLeft,DotPadKey.PanningRight]){s.press(k);s.release(k)}assert.deepEqual(s.commands,['minimap','resources','pause','left','right'])});
+test('repeated key-down edges never toggle menus repeatedly',async()=>{const s=await setup();for(let i=0;i<3;i++)s.press(DotPadKey.KeyFunction2);s.release(DotPadKey.KeyFunction2);assert.deepEqual(s.commands,['resources'])});
+test('pan release does not release a held F3',async()=>{const s=await setup();s.press(DotPadKey.KeyFunction3);s.press(DotPadKey.PanningLeft);s.release(DotPadKey.PanningLeft);s.advance(800);assert.deepEqual(s.commands,['left','save']);s.release(DotPadKey.KeyFunction3);assert.deepEqual(s.commands,['left','save'])});
+test('a dropped Bluetooth link cancels held keys and pauses output',async()=>{const s=await setup();s.press(DotPadKey.KeyFunction3);s.ble.drop();s.advance(1000);assert.deepEqual(s.commands,[]);s.pad.update(frame(true));assert.deepEqual(s.sdk.output,[]);assert.equal(s.pad.pending.dots[0][0],1);s.pad.release()});
+test('SDK disconnect notice clears the connection',async()=>{const s=await setup();await s.sdk.device.disconnect();assert.equal(s.pad.device,null);assert.equal(s.statuses.at(-1),'Bluetooth disconnected')});
+test('frames go to the text line and graphic area once',async()=>{const s=await setup();s.pad.update(frame(true));s.pad.update(frame(true));assert.equal(s.sdk.output.length,2);const [[k1,text,m1],[k2,graphic,m2]]=s.sdk.output;assert.deepEqual([k1,m1,k2,m2],['text','TextMode','graphic','GraphicMode']);assert.equal(text,'00'.repeat(20));assert.equal(graphic,'ff'.repeat(300))});
+test('only the changed area is sent again',async()=>{const s=await setup();s.pad.update(frame());const next=frame();next.time_dots[0][0]=1;s.pad.update(next);assert.deepEqual(s.sdk.output.at(-1),['text','01'+'00'.repeat(19),'TextMode']);assert.equal(s.sdk.output.length,3)});
+test('pads with another layout are rejected',async()=>{await assert.rejects(setup({rows:10,columns:30,text:0}),/Only 60×40/)});
+test('display packing keeps the cell bit layout',()=>{const cells=packCells([[1,0],[0,1],[1,0],[0,1]],0,1);assert.equal(cells[0],0xa5);assert.equal(cellsToHex(cells),'a5')});

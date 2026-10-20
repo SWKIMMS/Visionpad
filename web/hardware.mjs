@@ -1,19 +1,3 @@
-// Frame-state edges prevent held gestures from producing repeated clicks.
-export class TrackingGestureInput {
-    constructor(input){this.input=input;this.pressed=false;this.ready=false;}
-    reset(){
-        if(this.pressed)this.input.command('release');
-        this.pressed=false;this.ready=false;
-    }
-    update(point,pressed){
-        this.input.move(point[0],point[1]);
-        // After connect/loss, observe an open thumb before permitting a press.
-        if(!this.ready){if(!pressed)this.ready=true;return;}
-        if(pressed&&!this.pressed){this.pressed=true;this.input.press();}
-        else if(!pressed&&this.pressed){this.pressed=false;this.input.release();}
-    }
-}
-
 // Independent adapter for the packet layout in eun022/hand_drawing.
 // Reference commit: 2fdfa07c7f61cdc5a6603c33fc8b643a2b4036fb.
 export function packCells(dots, y, columns) {
@@ -153,14 +137,36 @@ if(typeof document!=='undefined'){
         usb.disabled=true;
         try{
             if(pad.connected)await pad.disconnect();
-            else {await pad.connect();pad.update(window.DotdewInput.state());}
+            else {if(bluetoothPad?.connected)await bluetoothPad.disconnect();await pad.connect();pad.update(window.DotdewInput.state());}
         }catch(error){status.textContent=error.name==='NotFoundError'?'Device selection cancelled':error.message;await pad.disconnect(false);}
         finally{usb.disabled=false;usb.textContent=pad.connected?'Disconnect USB pad':'Connect USB pad';}
     });
     window.addEventListener('dotdew-state',event=>pad.update(event.detail));
+    // A missing BLE SDK must not prevent USB or tracking initialization.
+    let bluetoothPad=null;
+    const ble=document.getElementById('ble-button');
+    const bluetoothModule=import('./bluetooth-pad.mjs').then(module=>({module}),error=>({error}));
+    ble.addEventListener('click',async()=>{
+        ble.disabled=true;
+        try{
+            const loaded=await bluetoothModule;
+            if(loaded.error)throw new Error('Bluetooth SDK unavailable. Restore web/vendor/DotPadSDK-3.0.3.js and its dependencies, then reload.');
+            if(!bluetoothPad)bluetoothPad=new loaded.module.BluetoothPad(text=>{
+                status.textContent=text;
+                ble.textContent=bluetoothPad?.connected?'Disconnect Bluetooth pad':'Connect Bluetooth pad';
+            },(key,phase)=>forwardKey(window.DotdewInput,key,phase));
+            if(bluetoothPad.connected)await bluetoothPad.disconnect();
+            else {
+                if(pad.connected)await pad.disconnect();
+                await bluetoothPad.connect();bluetoothPad.update(window.DotdewInput.state());
+            }
+        }catch(error){status.textContent=error.message;}
+        finally{ble.disabled=false;ble.textContent=bluetoothPad?.connected?'Disconnect Bluetooth pad':'Connect Bluetooth pad';}
+    });
+    window.addEventListener('dotdew-state',event=>bluetoothPad?.update(event.detail));
     let socket=null,held=false,valid=false,lastFrame=0;
     const button=document.getElementById('tracking-button'),hold=document.getElementById('tracking-hold'),trackingStatus=document.getElementById('tracking-status');
-    const gestureInput=new TrackingGestureInput(window.DotdewInput);
+
     function stopHold(){if(held)window.DotdewInput.command('release');held=false;hold.textContent='Press';hold.setAttribute('aria-pressed','false');}
     hold.addEventListener('click',()=>{
         if(!valid){trackingStatus.textContent='Waiting for valid hand coordinates.';return;}
@@ -181,22 +187,16 @@ if(typeof document!=='undefined'){
                     valid=!!data.hand_detected && data.pad_detected!==false && data.tracking_quality!=='lost'
                         && Array.isArray(pt)&&pt.length===2&&pt.every(Number.isFinite)&&pt[0]>=0&&pt[0]<60&&pt[1]>=0&&pt[1]<40;
                     hold.disabled=!valid;lastFrame=Date.now();
-                    if(!valid){gestureInput.reset();stopHold();trackingStatus.textContent='No valid hand coordinates';return;}
-                    const automatic=['hover','pressed'].includes(data.gesture);
-                    if(automatic){
-                        hold.disabled=true;
-                        if(held)stopHold();
-                        gestureInput.update(pt,data.gesture==='pressed');
-                    } else {
-                        gestureInput.reset();
-                        window.DotdewInput.move(pt[0],pt[1]);
-                    }
-                    trackingStatus.textContent=`Hand coordinates ${pt[0].toFixed(1)}, ${pt[1].toFixed(1)} · ${automatic?(data.gesture==='pressed'?'Thumb folded · Pressed':data.armed===false?'Open thumb to enable clicking':'Exploring'):held?'Pressed':'Exploring'}`;
-                }catch{gestureInput.reset();stopHold();valid=false;hold.disabled=true;trackingStatus.textContent='Invalid hand-coordinate message';}
+                    if(!valid){stopHold();trackingStatus.textContent='No valid hand coordinates';return;}
+                    // This evaluation uses coordinates only. Thumb/pinch gestures
+                    // never generate clicks; physical F4/manual press remain active.
+                    window.DotdewInput.move(pt[0],pt[1]);
+                    trackingStatus.textContent=`Hand coordinates ${pt[0].toFixed(1)}, ${pt[1].toFixed(1)} · ${held?'Pressed':'Exploring'}`;
+                }catch{stopHold();valid=false;hold.disabled=true;trackingStatus.textContent='Invalid hand-coordinate message';}
             };
             socket.onerror=()=>{trackingStatus.textContent='Could not connect to the hand-tracking server';};
-            socket.onclose=()=>{gestureInput.reset();stopHold();valid=false;hold.disabled=true;socket=null;button.disabled=false;button.textContent='Connect hand tracking';trackingStatus.textContent='Disconnected';};
+            socket.onclose=()=>{stopHold();valid=false;hold.disabled=true;socket=null;button.disabled=false;button.textContent='Connect hand tracking';trackingStatus.textContent='Disconnected';};
         }catch(error){socket=null;button.disabled=false;trackingStatus.textContent=error.message;}
     });
-    setInterval(()=>{if(valid&&Date.now()-lastFrame>1500){valid=false;hold.disabled=true;gestureInput.reset();stopHold();trackingStatus.textContent='Hand tracking timed out';}},500);
+    setInterval(()=>{if(valid&&Date.now()-lastFrame>1500){valid=false;hold.disabled=true;stopHold();trackingStatus.textContent='Hand tracking timed out';}},500);
 }
