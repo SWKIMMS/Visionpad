@@ -5,7 +5,7 @@ import numpy as np
 
 from .aruco import ArucoPadTracker
 from .filters import EMAFilter2D
-from .gesture import create_gesture_detector
+from .gesture import PinchGestureDetector
 from .hand import HandTracker
 from .mapper import PadCoordinateMapper
 
@@ -28,7 +28,7 @@ class VisionPadTracker:
             config["calibration"]
         )
 
-        self.gesture = create_gesture_detector(
+        self.gesture = PinchGestureDetector(
             config["gesture"]
         )
 
@@ -335,8 +335,6 @@ class VisionPadTracker:
             "fps": float(self.fps)
         }
 
-        data.update({key: gesture_result.get(key) for key in
-                     ('gesture_mode', 'thumb_angle_deg', 'thumb_palm_ratio', 'armed')})
         if draw:
             self._draw_debug_text(
                 display,
@@ -472,8 +470,7 @@ class VisionPadTracker:
             f"Pad: {data['tracking_quality']}",
             f"Hand: {data['hand_detected']} {data['handedness']}",
             f"Gesture: {data['gesture']} / {data['gesture_event']}",
-            f"Mode: {data.get('gesture_mode') or 'pinch'} Armed: {data.get('armed')}",
-            f"Thumb angle: {data.get('thumb_angle_deg')} Palm ratio: {data.get('thumb_palm_ratio')}",
+            f"Pinch: {data['pinch_ratio']}",
             f"FPS: {data['fps']:.1f}"
         ]
 

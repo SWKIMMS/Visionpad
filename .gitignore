@@ -92,7 +92,5 @@ desktop.ini
 # Local game saves
 /saves/
 
-# Local assistant context and per-session progress notes
-/AGENTS.md
-/docs/audio/PLAN.md
-/docs/audio/STATUS.md
+# Dot Inc. DotPadSDK: download locally, not committed (see README)
+/web/vendor/DotPadSDK-*
