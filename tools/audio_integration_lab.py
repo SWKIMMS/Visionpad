@@ -46,7 +46,7 @@ def main():
         @game_app.app.middleware('http')
         async def label_test_progress(request,call_next):
             if request.url.path=='/':
-                text=(ROOT/'web/game.html').read_text()
+                text=(ROOT/'web/game.html').read_text(encoding="utf-8-sig")
                 text=text.replace('>Tactile garden<','>INTEGRATION TEST · SEPARATE PROGRESS<')
                 text=text.replace('<title>Dotdew Valley · Tactile garden</title>',
                     '<title>Dotdew Valley · Separate audio test</title>')

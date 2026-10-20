@@ -14,7 +14,7 @@ from game_engine import GameEngine
 
 
 def fixture_config():
-    config = json.loads((ROOT/'game_config.json').read_text())
+    config = json.loads((ROOT/'game_config.json').read_text(encoding="utf-8-sig"))
     config['resources']['coin'] = 500
     return config
 

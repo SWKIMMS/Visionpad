@@ -33,11 +33,11 @@ def demo_lines():
         if entry["kind"] == "fixed":
             add(entry["text"], "system", f'{entry["source"]}:{entry["line"]}')
 
-    config = json.loads((ROOT / "speech_config.json").read_text())
+    config = json.loads((ROOT / "speech_config.json").read_text(encoding="utf-8-sig"))
     for sample in config["samples"]:
         add(sample["text"], "system", "speech_config.json:" + sample["id"])
 
-    npcs = json.loads((ROOT / "npc_config.json").read_text())
+    npcs = json.loads((ROOT / "npc_config.json").read_text(encoding="utf-8-sig"))
     for npc_id, npc in npcs.items():
         topics = {key: npc[key] for key in ("greeting", "return_greeting", "goodbye")}
         topics.update({f"farming.{key}": text for key, text in npc["farming"].items()})
@@ -49,7 +49,7 @@ def demo_lines():
     # shape the sample lines and never touch a running player's game.
     from game_engine import GameEngine
     with tempfile.TemporaryDirectory(prefix="visionpad-demo-quest-") as saved:
-        engine = GameEngine(json.loads((ROOT / "game_config.json").read_text()), save_dir=saved)
+        engine = GameEngine(json.loads((ROOT / "game_config.json").read_text(encoding="utf-8-sig")), save_dir=saved)
         engine.travel_to("town")
 
         def quest_line(result):
@@ -72,7 +72,7 @@ def demo_lines():
             quest_line(engine.open_calendar())
 
     # Only literal test-button calls are read; JavaScript is never evaluated.
-    page = (ROOT / "web/game.html").read_text()
+    page = (ROOT / "web/game.html").read_text(encoding="utf-8-sig")
     for match in re.finditer(r'\b(?:announce|speak)\(("(?:\\.|[^"\\])*")([^;\n]*)', page):
         profile = "shopkeeper" if '"shopkeeper"' in match[2] else "system"
         add(json.loads(match[1]), profile, "web/game.html:test-button")

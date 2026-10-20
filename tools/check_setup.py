@@ -63,12 +63,14 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
             model = root / "models/piper" / (entry["model"] + ".onnx")
             model_config = model.with_suffix(".onnx.json")
             good = model.is_file() and model.stat().st_size > 0
+            reason = "Model missing or empty: " + str(model) if not good else ""
             try:
-                values = json.loads(model_config.read_text())
+                values = json.loads(model_config.read_text(encoding="utf-8-sig"))
                 good = good and values["audio"]["sample_rate"] > 0 and bool(values["phoneme_id_map"])
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, ValueError, KeyError, TypeError) as error:
                 good = False
-            add("Voice: " + profile, good, entry["model"] if good else "Missing or invalid: " + str(model),
+                reason = f"Voice config {model_config}: {type(error).__name__}: {error}"
+            add("Voice: " + profile, good, entry["model"] if good else reason or "Invalid voice configuration: " + str(model_config),
                 "Run setup-mac.command or setup-windows.bat. If a damaged download remains, rename that model and its .onnx.json file before retrying setup.")
     except (OSError, ValueError, KeyError, TypeError, AssertionError):
         add("Voice configuration", False, "speech_config.json is missing or invalid", "Restore speech_config.json.")
