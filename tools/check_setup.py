@@ -8,6 +8,9 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from game_speech import valid_model_file
+
 DEPENDENCIES = {"fastapi": ((0, 110), (1,)), "uvicorn": ((0, 29), (1,)),
                 "piper-tts": ((1, 8, 0), (1, 8, 1)), "onnxruntime": (None, None)}
 ASSETS = ("water", "soil", "cut", "cook", "crop", "correct", "sleep", "door", "coin",
@@ -38,10 +41,11 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
             add(name, False, "Not installed", "Run the setup file in this project folder.")
 
     required = ("game_app.py", "game_engine.py", "game_speech.py", "speech_queue.py", "game_npc.py", "game_ui.py",
+                "game_icons.py", "game_village.py",
                 "game_saves.py", "game_fishing.py", "game_seafood.py", "dotpad.py",
                 "spectator_state.py", "game_config.json", "npc_config.json", "requirements.txt",
-                "web/game.html", "web/game-audio.js", "web/game-speech.js", "web/game-keys.js",
-                "tools/prepare_demo.py", "tools/prepare_speech.py")
+                "web/game.html", "web/game-audio.js", "web/game-speech.js", "web/game-keys.js", "web/hardware.mjs",
+                "tools/prepare_demo.py", "tools/prepare_speech.py", "tools/audio_flow.py", "tools/speech_inventory.py")
     missing = [name for name in required if not (root / name).is_file()]
     add("Game files", not missing, "Complete" if not missing else ", ".join(missing),
         "Copy the complete project source, including web and tools folders.")
@@ -52,7 +56,7 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
 
     config = None
     try:
-        config = json.loads((root / "speech_config.json").read_text(encoding="utf-8"))
+        config = json.loads((root / "speech_config.json").read_text(encoding="utf-8-sig"))
         if not isinstance(config, dict):
             raise ValueError("Invalid voice configuration")
         if not isinstance(config.get("profiles"), dict) or not config["profiles"] or not config.get("samples"):
@@ -62,16 +66,11 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
                 raise ValueError("Invalid voice model entry")
             model = root / "models/piper" / (entry["model"] + ".onnx")
             model_config = model.with_suffix(".onnx.json")
-            good = model.is_file() and model.stat().st_size > 0
-            reason = "Model missing or empty: " + str(model) if not good else ""
-            try:
-                values = json.loads(model_config.read_text(encoding="utf-8-sig"))
-                good = good and values["audio"]["sample_rate"] > 0 and bool(values["phoneme_id_map"])
-            except (OSError, ValueError, KeyError, TypeError) as error:
-                good = False
-                reason = f"Voice config {model_config}: {type(error).__name__}: {error}"
-            add("Voice: " + profile, good, entry["model"] if good else reason or "Invalid voice configuration: " + str(model_config),
-                "Run setup-mac.command or setup-windows.bat. If a damaged download remains, rename that model and its .onnx.json file before retrying setup.")
+            expected = config.get("downloads", {}).get(entry["model"], {}).get("files", {})
+            broken = [str(path) for path, extension in ((model, ".onnx"), (model_config, ".onnx.json"))
+                      if not valid_model_file(path, expected.get(extension))]
+            add("Voice: " + profile, not broken, entry["model"] if not broken else "Missing or damaged: " + ", ".join(broken),
+                "Run setup-mac.command or setup-windows.bat again. Missing and damaged voice files are downloaded automatically.")
     except (OSError, ValueError, KeyError, TypeError, AssertionError):
         add("Voice configuration", False, "speech_config.json is missing or invalid", "Restore speech_config.json.")
 
@@ -101,7 +100,7 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
                         "Generated valid WAV in temporary storage")
                 except Exception as error:
                     add("Voice synthesis: " + profile, False, str(error),
-                        "Check Python and audio package support. For an interrupted model download, rename its model/config pair in models/piper and run setup again.")
+                        "Run setup-mac.command or setup-windows.bat again and check the reported package or voice error.")
 
     return {"ready": all(check["ok"] for check in checks), "platform": platform.platform(),
             "python": sys.executable, "voice_synthesis_requested": synthesize, "checks": checks,
@@ -125,7 +124,7 @@ def main():
     show_report(result)
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps(result, indent=2) + "\n")
+        args.report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return 0 if result["ready"] else 1
 
 

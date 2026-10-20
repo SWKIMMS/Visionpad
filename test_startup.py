@@ -25,8 +25,9 @@ class SetupChecks(unittest.TestCase):
         self.root = Path(self.temp.name)
         for path in ROOT.glob("*.py"):
             (self.root / path.name).touch()
-        for name in ("web/game.html", "web/game-audio.js", "web/game-speech.js", "web/game-keys.js",
-                     "tools/prepare_demo.py", "tools/prepare_speech.py", "game_config.json", "npc_config.json", "requirements.txt"):
+        for name in ("web/game.html", "web/game-audio.js", "web/game-speech.js", "web/game-keys.js", "web/hardware.mjs",
+                     "tools/prepare_demo.py", "tools/prepare_speech.py", "tools/audio_flow.py", "tools/speech_inventory.py",
+                     "game_config.json", "npc_config.json", "requirements.txt"):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.touch()
@@ -68,6 +69,31 @@ class SetupChecks(unittest.TestCase):
         failed = {check["name"] for check in self.report()["checks"] if not check["ok"]}
         self.assertEqual(failed, {"Game sounds", "Game files"})
 
+    def test_missing_new_game_modules_and_demo_helpers_are_reported(self):
+        for name in ("game_icons.py", "game_village.py", "tools/audio_flow.py", "tools/speech_inventory.py"):
+            with self.subTest(file=name):
+                path = self.root / name
+                path.unlink()
+                check = next(item for item in self.report()["checks"] if item["name"] == "Game files")
+                self.assertFalse(check["ok"])
+                self.assertIn(name, check["detail"])
+                path.touch()
+
+    def test_voice_settings_with_korean_and_utf8_bom_ignore_cp949_defaults(self):
+        config = self.root / "speech_config.json"
+        values = json.loads(config.read_text(encoding="utf-8"))
+        values["profiles"]["system"]["label"] = "시스템 안내"
+        config.write_text(json.dumps(values, ensure_ascii=False), encoding="utf-8-sig")
+        settings = self.model.with_suffix(".onnx.json")
+        settings.write_text(json.dumps({"audio": {"sample_rate": 22050}, "phoneme_id_map": {"가": [1]}}, ensure_ascii=False), encoding="utf-8-sig")
+        read_text = Path.read_text
+
+        def windows_read(path, encoding=None, **kwargs):
+            return read_text(path, encoding=encoding or "cp949", **kwargs)
+
+        with patch.object(Path, "read_text", windows_read):
+            self.assertTrue(self.report()["ready"])
+
     def test_older_python_is_reported_before_starting_any_server(self):
         report = check_setup(self.root, get_version=VERSIONS.__getitem__, python_version=(3, 10, 9))
         self.assertFalse(report["ready"])
@@ -82,8 +108,14 @@ class StartupTests(unittest.TestCase):
         schema["paths"] = {}
         with patch("launch_game.urlopen", return_value=io.BytesIO(json.dumps(schema).encode())):
             self.assertEqual(launch_game.server_status("http://127.0.0.1:8000"), "other")
-        with patch("launch_game.urlopen", side_effect=URLError(ConnectionRefusedError())):
+        with patch("launch_game.urlopen", side_effect=URLError(ConnectionRefusedError())), patch("launch_game.port_is_available", return_value=True):
             self.assertEqual(launch_game.server_status("http://127.0.0.1:8000"), "free")
+
+    def test_windows_timeout_does_not_hide_a_free_port(self):
+        with patch("launch_game.urlopen", side_effect=URLError(TimeoutError())), patch("launch_game.port_is_available", return_value=True):
+            self.assertEqual(launch_game.server_status("http://127.0.0.1:8000"), "free")
+        with patch("launch_game.urlopen", side_effect=URLError(TimeoutError())), patch("launch_game.port_is_available", side_effect=OSError("busy")):
+            self.assertEqual(launch_game.server_status("http://127.0.0.1:8000"), "other")
 
     def test_existing_server_is_reused_without_launching_or_stopping_a_process(self):
         with patch("launch_game.server_status", return_value="game"), patch("launch_game.subprocess.Popen") as start:
@@ -129,14 +161,14 @@ class StartupTests(unittest.TestCase):
 
             def fail_install(command, **kwargs):
                 commands.append(command)
-                if "install" in command:
+                if "-r" in command:
                     raise subprocess.CalledProcessError(1, command)
                 return subprocess.CompletedProcess(command, 0)
 
             with patch("tools.setup_game.environment_python", return_value=python):
                 with self.assertRaises(subprocess.CalledProcessError):
                     setup(root, run=fail_install)
-            self.assertEqual(len(commands), 2)
+            self.assertEqual(len(commands), 3)
             self.assertEqual(commands[-1][-1], str(root / "requirements.txt"))
 
     def test_broken_existing_environment_is_preserved(self):

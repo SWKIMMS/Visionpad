@@ -12,9 +12,49 @@
     }
   },
   "samples": [
-    {"id": "welcome", "text": "Welcome to Dotdew Valley. Explore the garden at your own pace."},
-    {"id": "controls", "text": "Press F1 for the map. Press F2 for your inventory. Press F4 to select."},
-    {"id": "numbers", "text": "Tomato seeds bought. Gold left: 24 gold. You have 3 tomatoes."},
-    {"id": "fishing", "text": "Fishing lake. Follow the water sound. Tap to fish."}
-  ]
+    {
+      "id": "welcome",
+      "text": "Welcome to Dotdew Valley. Explore the garden at your own pace."
+    },
+    {
+      "id": "controls",
+      "text": "Press F1 for the map. Press F2 for your inventory. Press F4 to select."
+    },
+    {
+      "id": "numbers",
+      "text": "Tomato seeds bought. Gold left: 24 gold. You have 3 tomatoes."
+    },
+    {
+      "id": "fishing",
+      "text": "Fishing lake. Follow the water sound. Tap to fish."
+    }
+  ],
+  "downloads": {
+    "en_US-hfc_female-medium": {
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/en/en_US/hfc_female/medium/en_US-hfc_female-medium",
+      "files": {
+        ".onnx": {
+          "size": 63201294,
+          "sha256": "914c473788fc1fa8b63ace1cdcdb44588f4ae523d3ab37df1536616835a140b7"
+        },
+        ".onnx.json": {
+          "size": 5033,
+          "sha256": "03f1fa0622b80463283592d97aca9f6e89aec345a5c56b7257723e0093c58b6c"
+        }
+      }
+    },
+    "en_US-hfc_male-medium": {
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/en/en_US/hfc_male/medium/en_US-hfc_male-medium",
+      "files": {
+        ".onnx": {
+          "size": 63201294,
+          "sha256": "d11e403a02bdf5a670c877b3dc56e0e1c8cece6fb30289586314dffdc0a78cb0"
+        },
+        ".onnx.json": {
+          "size": 5033,
+          "sha256": "f66847424aed0bf99ecbb5d7cfde47c0a906f426a0daf7c46f305e7d21afd886"
+        }
+      }
+    }
+  }
 }

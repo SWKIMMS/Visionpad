@@ -49,7 +49,7 @@ Mac 실행 파일과 직접 실행 명령의 기본 주소는 `http://127.0.0.1:
 
 설정 파일을 수정하면 서버를 재시작한다. 웹 파일을 교체한 뒤에는 Ctrl+F5로 새로고침하고 시각화 창도 다시 연다.
 
-현재 준비한 Mac 환경은 `.venv/`이며 실행 파일은 기존 `venv/`도 인식한다. 활성화한 환경에서 `python tools/check_setup.py --synthesize`를 실행하면 게임을 시작하거나 변경하지 않고 파일·패키지·실제 음성 생성을 점검한다. Mac arm64/Python 3.14.3에서 확인했으며 Windows 실행 파일은 실제 Windows에서 확인이 남아 있다.
+새로 설치한다면 Python 3.12 64비트를 권장한다. 실행 파일은 `.venv/`와 `venv/`를 인식한다. 두 환경 모두 설정을 UTF-8로 읽으며, 손상된 음성 파일은 설치 시 다시 받는다. 활성화한 환경에서 `python tools/check_setup.py --synthesize`로 파일·패키지·두 목소리를 점검할 수 있다. Windows와 Mac의 자동 설치 검사 결과는 GitHub Actions의 **Audio setup**에서 확인한다.
 
 ## 영어 음성과 Rowan 대화
 

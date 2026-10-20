@@ -16,6 +16,30 @@ class SpeechUnavailable(RuntimeError):
     pass
 
 
+def valid_model_file(path, expected=None):
+    """Check voice files, including UTF-8 configs and pinned download hashes."""
+    path = Path(path)
+    expected = expected or {}
+    try:
+        if not path.is_file() or not path.stat().st_size:
+            return False
+        if expected.get("size") and path.stat().st_size != expected["size"]:
+            return False
+        if expected.get("sha256"):
+            digest = sha256()
+            with path.open("rb") as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected["sha256"]:
+                return False
+        if path.suffix == ".json":
+            values = json.loads(path.read_text(encoding="utf-8-sig"))
+            return values["audio"]["sample_rate"] > 0 and bool(values["phoneme_id_map"])
+        return True
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def spoken_text(text):
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(text))
     text = re.sub(r"\s+", " ", text).strip()
@@ -68,13 +92,13 @@ class PiperSynthesizer:
                     text, output, syn_config=SynthesisConfig(length_scale=1 / rate)
                 )
         except Exception as error:
-            raise SpeechUnavailable("Could not generate speech. Check the voice setup and retry.") from error
+            raise SpeechUnavailable(f"Could not generate speech: {error}. Run the setup file and retry.") from error
 
 
 class SpeechService:
     def __init__(self, root, synthesizer=None, cache_dir=None):
         self.root = Path(root)
-        self.config = json.loads((self.root / "speech_config.json").read_text(encoding="utf-8"))
+        self.config = json.loads((self.root / "speech_config.json").read_text(encoding="utf-8-sig"))
         self.profiles = self.config["profiles"]
         self.synthesizer = synthesizer or PiperSynthesizer(self.root, self.profiles)
         self.cache_dir = Path(cache_dir) if cache_dir is not None else self.root / ".cache" / "speech"

@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-NPCS = json.loads((Path(__file__).with_name("npc_config.json")).read_text(encoding="utf-8"))
+NPCS = json.loads((Path(__file__).with_name("npc_config.json")).read_text(encoding="utf-8-sig"))
 
 
 class NpcMixin:

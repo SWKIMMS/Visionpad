@@ -49,7 +49,7 @@ The Mac launcher and manual command default to `http://127.0.0.1:8000`. Windows 
 
 Restart the server after changing the configuration. After replacing web files, hard-refresh the game page and reopen the companion window.
 
-On this Mac, the prepared environment is `.venv/`. The launchers also recognize an existing `venv/`. Run `python tools/check_setup.py --synthesize` from the active environment to diagnose files, packages and actual voice generation without starting or changing a game. Mac arm64 with Python 3.14.3 has been checked; the Windows helpers still need an actual Windows run.
+Python 3.12 (64-bit) is recommended for a new installation. The launchers recognize `.venv/` and `venv/`. Settings use UTF-8 on both platforms; setup verifies voice downloads and replaces damaged files. Run `python tools/check_setup.py --synthesize` from the active environment to check files, packages and both voices. See **Audio setup** in GitHub Actions for Windows and Mac installation checks.
 
 ## English voices and Rowan
 

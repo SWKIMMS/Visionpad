@@ -161,7 +161,7 @@ def main():
     except (OSError, ValueError, RuntimeError) as error:
         parser.exit(1, f"Could not prepare demo voices: {error}\nStart the game server and check voice setup.\n")
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, indent=2) + "\n")
+    args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"Ready {report['ready']}/{report['total']}; generated {report['generated']}; "
           f"reused {report['cache_hits']}; {report['elapsed_seconds']} seconds. Report: {args.report}")
     if not report["complete"]:

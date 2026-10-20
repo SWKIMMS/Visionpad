@@ -18,7 +18,7 @@ CONFIG_PATH = BASE_DIR / "game_config.json"
 WEB_DIR = BASE_DIR / "web"
 
 
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
     CONFIG = json.load(f)
 
 

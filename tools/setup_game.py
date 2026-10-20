@@ -1,5 +1,6 @@
 """Create this project's environment and install its game and fixed voices."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -33,12 +34,13 @@ def setup(root=ROOT, run=subprocess.run):
     checked = run([str(python), "-c", "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"], cwd=root, check=False)
     if checked.returncode:
         raise RuntimeError("The project environment needs Python 3.11 or newer. Rename the old environment folder and run setup again.")
-    commands = [[str(python), "-m", "pip", "install", "-r", str(root / "requirements.txt")],
+    commands = [[str(python), "-m", "pip", "install", "--upgrade", "pip"],
+                [str(python), "-m", "pip", "install", "-r", str(root / "requirements.txt")],
                 [str(python), "-m", "pip", "check"],
                 [str(python), str(root / "tools/prepare_speech.py"), "--download"],
                 [str(python), str(root / "tools/check_setup.py"), "--synthesize"]]
     for command in commands:
-        run(command, cwd=root, check=True)
+        run(command, cwd=root, check=True, env={**os.environ, "PYTHONUTF8": "1"})
     return python
 
 

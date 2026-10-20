@@ -1,0 +1,42 @@
+name: Audio setup
+
+on:
+  push:
+    branches: [main, fix/audio-setup]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audio:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-15-intel]
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Windows setup and voice download
+        if: runner.os == 'Windows'
+        run: cmd /c "setup-windows.bat < nul"
+      - name: Mac setup and voice download
+        if: runner.os == 'macOS'
+        run: printf '\n' | zsh setup-mac.command
+      - name: Python checks
+        run: python -c "import subprocess; from tools.setup_game import environment_python; subprocess.run([str(environment_python()), '-m', 'unittest', 'test_team_audio', 'test_speech_queue', 'test_speech_api', 'test_gameplay_audio', 'test_speech', 'test_fishing', 'test_sound_events', 'test_audio_flow', 'test_demo_speech', 'test_startup', 'test_voice_download', '-q'], check=True)"
+      - name: JavaScript checks
+        run: node --test test_speech.cjs test_guidance.cjs test_fishing_audio.cjs test_effects.cjs test_audio_integration.cjs test_hardware.mjs test_tracking_input.mjs
+      - name: Real audio API
+        run: python -c "import subprocess; from tools.setup_game import environment_python; subprocess.run([str(environment_python()), 'tools/smoke_audio.py'], check=True)"

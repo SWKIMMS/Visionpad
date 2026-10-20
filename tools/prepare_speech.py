@@ -1,5 +1,6 @@
 """Download the configured Piper voices and build reproducible listening samples."""
 import argparse
+from http.client import HTTPException
 import json
 from pathlib import Path
 import sys
@@ -10,50 +11,50 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from game_speech import SpeechService
+from game_speech import SpeechService, valid_model_file
 
-def fallback_download(model, dest_dir):
-    """Piper 자체 다운로드 실패 시 HuggingFace에서 직접 파일을 받아옵니다."""
+
+def download_voice(model, dest_dir, specification, opener=None, attempts=3):
+    """Reuse verified files; replace missing or damaged files after a full download."""
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 모델명 파싱 (예: en_US-hfc_female-medium -> en, en_US, hfc_female, medium)
-    parts = model.split('-')
-    if len(parts) >= 3:
-        locale = parts[0]
-        lang = locale.split('_')[0]
-        voice = parts[1]
-        quality = parts[2]
-        base_url = f"https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang}/{locale}/{voice}/{quality}/{model}"
-    else:
-        raise ValueError(f"알 수 없는 모델 형식입니다: {model}")
+    opener = opener or urllib.request.urlopen
+    for extension in (".onnx.json", ".onnx"):
+        expected = specification["files"][extension]
+        target = dest_dir / (model + extension)
+        if valid_model_file(target, expected):
+            print(f"Voice file ready: {target.name}", flush=True)
+            continue
+        for attempt in range(1, attempts + 1):
+            temporary = None
+            try:
+                print(f"Downloading {target.name} ({attempt}/{attempts})", flush=True)
+                request = urllib.request.Request(specification["url"] + extension,
+                                                 headers={"User-Agent": "Dotdew-Valley"})
+                with opener(request, timeout=60) as response:
+                    with tempfile.NamedTemporaryFile(dir=dest_dir, prefix=".download-",
+                                                     suffix=extension, delete=False) as output:
+                        temporary = Path(output.name)
+                        shutil.copyfileobj(response, output)
+                if not valid_model_file(temporary, expected):
+                    raise ValueError("Incomplete or damaged download (size or SHA-256 mismatch)")
+                # Both handles are closed before replacement, including on Windows.
+                temporary.replace(target)
+                break
+            except (OSError, ValueError, HTTPException) as error:
+                if attempt == attempts:
+                    raise RuntimeError(f"Could not download {target.name}: {error}. Check the internet connection and run setup again.") from error
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
 
-    for ext in [".onnx", ".onnx.json"]:
-        file_url = base_url + ext
-        file_dest = dest_dir / (model + ext)
-        
-        # Download to a temporary file; never leave an incomplete final file.
-        print(f"Downloading: {file_url}", flush=True)
-        temporary = None
-        try:
-            req = urllib.request.Request(file_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=60) as response:
-                with tempfile.NamedTemporaryFile(dir=dest_dir, suffix=".part", delete=False) as out_file:
-                    temporary = Path(out_file.name)
-                    shutil.copyfileobj(response, out_file)
-                expected = response.headers.get("Content-Length")
-                if not temporary.stat().st_size or (expected and temporary.stat().st_size != int(expected)):
-                    raise ValueError("Incomplete download")
-            if ext == ".onnx.json":
-                values = json.loads(temporary.read_text(encoding="utf-8-sig"))
-                if values["audio"]["sample_rate"] <= 0 or not values["phoneme_id_map"]:
-                    raise ValueError("Invalid voice configuration")
-            temporary.replace(file_dest)
-        except Exception as error:
-            raise RuntimeError(f"Download failed for {model}{ext}: {error}") from error
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
+
+def prepare_models(service):
+    specifications = service.config.get("downloads", {})
+    for model in sorted({profile["model"] for profile in service.profiles.values()}):
+        if model not in specifications:
+            raise RuntimeError(f"Download settings missing for {model}. Restore speech_config.json from the complete project.")
+        download_voice(model, service.root / "models" / "piper", specifications[model])
 
 
 def main():
@@ -61,21 +62,8 @@ def main():
     parser.add_argument("--download", action="store_true", help="Download configured voice models")
     args = parser.parse_args()
     service = SpeechService(ROOT)
-    
     if args.download:
-        from piper.download_voices import download_voice
-        models_dir = ROOT / "models" / "piper"
-        models_dir.mkdir(parents=True, exist_ok=True)
-        
-        for model in sorted({profile["model"] for profile in service.profiles.values()}):
-            try:
-                # 1. 먼저 Piper 기본 모듈의 다운로드를 시도합니다.
-                download_voice(model, models_dir)
-            except Exception as e:
-                print(f"\nPiper 기본 다운로드에 실패했습니다 ({e}). 대체 주소로 다운로드를 시도합니다...", file=sys.stderr)
-                # 2. 실패할 경우 직접 HuggingFace 접속 다운로드 시도
-                fallback_download(model, models_dir)
-                
+        prepare_models(service)
     output_dir = ROOT / "output" / "audio"
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest = []
@@ -99,4 +87,8 @@ def main():
     (output_dir / "samples.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"Voice setup failed: {error}", file=sys.stderr)
+        raise SystemExit(1)

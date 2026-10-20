@@ -11,7 +11,7 @@ def collect():
     for path in sorted(ROOT.glob("game_*.py")):
         if path.name == "game_speech.py":
             continue
-        source = path.read_text(encoding="utf-8")
+        source = path.read_text(encoding="utf-8-sig")
         tree = ast.parse(source)
         nodes = []
         for node in ast.walk(tree):
