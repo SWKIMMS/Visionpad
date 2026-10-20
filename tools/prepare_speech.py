@@ -14,39 +14,41 @@ sys.path.insert(0, str(ROOT))
 from game_speech import SpeechService, valid_model_file
 
 
-def download_voice(model, dest_dir, specification, opener=None, attempts=3):
-    """Reuse verified files; replace missing or damaged files after a full download."""
-    dest_dir = Path(dest_dir)
-    dest_dir.mkdir(parents=True, exist_ok=True)
+def download_file(url, target, expected, opener=None, attempts=3):
+    """Publish only verified downloads; retain the old file on failure."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
     opener = opener or urllib.request.urlopen
+    if valid_model_file(target, expected):
+        print(f"File ready: {target.name}", flush=True)
+        return
+    for attempt in range(1, attempts + 1):
+        temporary = None
+        try:
+            print(f"Downloading {target.name} ({attempt}/{attempts})", flush=True)
+            request = urllib.request.Request(url, headers={"User-Agent": "Dotdew-Valley"})
+            with opener(request, timeout=60) as response:
+                with tempfile.NamedTemporaryFile(dir=target.parent, prefix=".download-",
+                                                 suffix=target.suffix, delete=False) as output:
+                    temporary = Path(output.name)
+                    shutil.copyfileobj(response, output)
+            if not valid_model_file(temporary, expected):
+                raise ValueError("Incomplete or damaged download (size or SHA-256 mismatch)")
+            # Both handles are closed before replacement, including on Windows.
+            temporary.replace(target)
+            return
+        except (OSError, ValueError, HTTPException) as error:
+            if attempt == attempts:
+                raise RuntimeError(f"Could not download {target.name}: {error}. Check the internet connection and run setup again.") from error
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+
+def download_voice(model, dest_dir, specification, opener=None, attempts=3):
     for extension in (".onnx.json", ".onnx"):
-        expected = specification["files"][extension]
-        target = dest_dir / (model + extension)
-        if valid_model_file(target, expected):
-            print(f"Voice file ready: {target.name}", flush=True)
-            continue
-        for attempt in range(1, attempts + 1):
-            temporary = None
-            try:
-                print(f"Downloading {target.name} ({attempt}/{attempts})", flush=True)
-                request = urllib.request.Request(specification["url"] + extension,
-                                                 headers={"User-Agent": "Dotdew-Valley"})
-                with opener(request, timeout=60) as response:
-                    with tempfile.NamedTemporaryFile(dir=dest_dir, prefix=".download-",
-                                                     suffix=extension, delete=False) as output:
-                        temporary = Path(output.name)
-                        shutil.copyfileobj(response, output)
-                if not valid_model_file(temporary, expected):
-                    raise ValueError("Incomplete or damaged download (size or SHA-256 mismatch)")
-                # Both handles are closed before replacement, including on Windows.
-                temporary.replace(target)
-                break
-            except (OSError, ValueError, HTTPException) as error:
-                if attempt == attempts:
-                    raise RuntimeError(f"Could not download {target.name}: {error}. Check the internet connection and run setup again.") from error
-            finally:
-                if temporary is not None:
-                    temporary.unlink(missing_ok=True)
+        download_file(specification["url"] + extension, Path(dest_dir) / (model + extension),
+                      specification["files"][extension], opener=opener, attempts=attempts)
 
 
 def prepare_models(service):

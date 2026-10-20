@@ -94,3 +94,8 @@ desktop.ini
 
 # Dot Inc. DotPadSDK: download locally, not committed (see README)
 /web/vendor/DotPadSDK-*
+
+# Local project notes
+/AGENTS.md
+/docs/audio/PLAN.md
+/docs/audio/STATUS.md

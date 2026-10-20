@@ -24,7 +24,7 @@ Farming, cooking, mining, trading, research, fishing, and one authored NPC conve
 
 ## Running the game
 
-For the first setup, install Python 3.11 or newer and open **setup-mac.command** on Mac or **setup-windows.bat** on Windows. These create a project environment, install the dependencies and download both voices. Internet is needed for that setup. For later starts, open **start-mac.command** or **game.bat**. The launcher checks the setup, waits for the server, prepares demo voices and opens the game. An existing game on the selected port is reused without a restart. See the [setup and handoff guide](docs/audio/SETUP.md).
+For the first setup, install Python 3.11 or newer and open **setup-mac.command** on Mac or **setup-windows.bat** on Windows. These create a project environment, install the dependencies and download the Bluetooth SDK and both voices. Internet is needed for that setup. For later starts, open **start-mac.command** or **game.bat**. The launcher checks the setup, waits for the server, prepares demo voices and opens the game. An existing game on the selected port is reused without a restart. See the [setup and handoff guide](docs/audio/SETUP.md).
 
 For manual setup, create a Python environment and install the dependencies from the project root.
 
@@ -36,6 +36,7 @@ venv\Scripts\activate
 source venv/bin/activate
 
 python -m pip install -r requirements.txt
+python tools/prepare_pad.py
 python tools/prepare_speech.py --download
 python launch_game.py --prepare-demo
 ```

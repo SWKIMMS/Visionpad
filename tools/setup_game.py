@@ -37,6 +37,7 @@ def setup(root=ROOT, run=subprocess.run):
     commands = [[str(python), "-m", "pip", "install", "--upgrade", "pip"],
                 [str(python), "-m", "pip", "install", "-r", str(root / "requirements.txt")],
                 [str(python), "-m", "pip", "check"],
+                [str(python), str(root / "tools/prepare_pad.py")],
                 [str(python), str(root / "tools/prepare_speech.py"), "--download"],
                 [str(python), str(root / "tools/check_setup.py"), "--synthesize"]]
     for command in commands:

@@ -45,6 +45,7 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
                 "game_saves.py", "game_fishing.py", "game_seafood.py", "dotpad.py",
                 "spectator_state.py", "game_config.json", "npc_config.json", "requirements.txt",
                 "web/game.html", "web/game-audio.js", "web/game-speech.js", "web/game-keys.js", "web/hardware.mjs",
+                "web/bluetooth-pad.mjs", "web/vendor/package.json", "tools/prepare_pad.py",
                 "tools/prepare_demo.py", "tools/prepare_speech.py", "tools/audio_flow.py", "tools/speech_inventory.py")
     missing = [name for name in required if not (root / name).is_file()]
     add("Game files", not missing, "Complete" if not missing else ", ".join(missing),
@@ -53,6 +54,9 @@ def check_setup(root=ROOT, get_version=version, python_version=None, synthesize=
                or not (root / "web/audio" / (name + ".mp3")).stat().st_size]
     add("Game sounds", not missing, "18 files present" if not missing else ", ".join(missing),
         "Restore web/audio from the project source.")
+    sdk = root / "web/vendor/DotPadSDK-3.0.3.js"
+    add("Bluetooth SDK", sdk.is_file() and sdk.stat().st_size > 0, str(sdk),
+        "Run setup-mac.command or setup-windows.bat to download the official SDK.")
 
     config = None
     try:

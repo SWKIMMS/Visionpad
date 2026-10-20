@@ -26,11 +26,14 @@ class SetupChecks(unittest.TestCase):
         for path in ROOT.glob("*.py"):
             (self.root / path.name).touch()
         for name in ("web/game.html", "web/game-audio.js", "web/game-speech.js", "web/game-keys.js", "web/hardware.mjs",
+                     "web/bluetooth-pad.mjs", "web/vendor/package.json", "tools/prepare_pad.py",
                      "tools/prepare_demo.py", "tools/prepare_speech.py", "tools/audio_flow.py", "tools/speech_inventory.py",
                      "game_config.json", "npc_config.json", "requirements.txt"):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.touch()
+        sdk = self.root / "web/vendor/DotPadSDK-3.0.3.js"
+        sdk.write_bytes(b"sdk")
         for name in ASSETS:
             target = self.root / "web/audio" / (name + ".mp3")
             target.parent.mkdir(parents=True, exist_ok=True)
